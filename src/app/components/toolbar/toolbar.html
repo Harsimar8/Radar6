@@ -26,14 +26,16 @@
 
     <span class="spacer"></span>
 
-    <button
-        (click)="simulationService.setView(ViewMode.Leaflet)">
-        2D
-    </button>
+     <button (click)="simulationService.showSplit()">
+    Split
+</button>
 
-    <button
-        (click)="simulationService.setView(ViewMode.Cesium)">
-        3D
-    </button>
+<button (click)="simulationService.showLeaflet()">
+    Full 2D
+</button>
+
+<button (click)="simulationService.showCesium()">
+    Full 3D
+</button>
 
 </div>

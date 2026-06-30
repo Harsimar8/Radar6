@@ -67,6 +67,21 @@ export class LeafletMap implements AfterViewInit {
 
     effect(() => {
 
+  // Listen for panel mode changes
+  this.simulationService.panelMode();
+
+  if (!this.map) {
+    return;
+  }
+
+  setTimeout(() => {
+    this.map.invalidateSize();
+  }, 50);
+
+});
+
+    effect(() => {
+
   const camera = this.mapSyncService.center();
 
   if (!this.map) {

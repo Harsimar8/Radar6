@@ -11,20 +11,32 @@
     overflow: hidden;
 }
 
-.leaflet-panel {
-    flex: 1;
-    border-right: 1px solid #cccccc;
-    overflow: hidden;
-}
-
+.leaflet-panel,
 .cesium-panel {
     flex: 1;
     overflow: hidden;
+    display: flex;
+}
+
+.leaflet-panel {
+    border-right: 1px solid #cccccc;
 }
 
 app-leaflet-map,
 app-cesium-map {
+    width: 100%;
+    height: 100%;
     display: block;
+}
+
+/* Hide a panel */
+.hidden {
+    display: none !important;
+}
+
+/* Make one panel fill the whole container */
+.full {
+    flex: 1 1 100%;
     width: 100%;
     height: 100%;
 }

@@ -13,6 +13,7 @@ export class SimulationService {
   currentTool = signal(EditorTool.Select);
 
   currentView = signal(ViewMode.Leaflet);
+   panelMode = signal<'split' | 'leaflet' | 'cesium'>('split');
 
   selectedEntity = signal<Entity | null>(null);
   selectedTemplate = signal<any | null>(null);
@@ -35,6 +36,18 @@ export class SimulationService {
 
   this.selectedTemplate.set(template);
 
+}  
+
+showSplit() {
+  this.panelMode.set('split');
+}
+
+showLeaflet() {
+  this.panelMode.set('leaflet');
+}
+
+showCesium() {
+  this.panelMode.set('cesium');
 }
 
 }

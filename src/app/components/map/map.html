@@ -1,11 +1,21 @@
 <div class="map-container">
 
-    <div class="leaflet-panel">
+    <div
+        class="leaflet-panel"
+        [class.hidden]="simulationService.panelMode() === 'cesium'"
+        [class.full]="simulationService.panelMode() === 'leaflet'">
+
         <app-leaflet-map></app-leaflet-map>
+
     </div>
 
-    <div class="cesium-panel">
+    <div
+        class="cesium-panel"
+        [class.hidden]="simulationService.panelMode() === 'leaflet'"
+        [class.full]="simulationService.panelMode() === 'cesium'">
+
         <app-cesium-map></app-cesium-map>
+
     </div>
 
 </div>

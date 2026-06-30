@@ -81,6 +81,25 @@ effect(() => {
 
 });
 
+effect(() => {
+
+  // Listen for panel mode changes
+  this.simulationService.panelMode();
+
+  if (!this.viewer) {
+    return;
+  }
+
+  setTimeout(() => {
+
+    this.viewer.resize();
+
+    this.viewer.scene.requestRender();
+
+  }, 50);
+
+});
+
   }   // <-- constructor ends here
 
    ngAfterViewInit(): void {
