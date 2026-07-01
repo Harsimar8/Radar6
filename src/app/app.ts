@@ -4,7 +4,6 @@ import { Toolbar } from './components/toolbar/toolbar';
 import { PropertyPanel } from './components/property-panel/property-panel';
 import { EntityList } from './components/entity-list/entity-list';
 import { MapComponent } from './components/map/map';
-import { StatusBar } from './components/status-bar/status-bar';
 
 @Component({
   selector: 'app-root',
@@ -12,8 +11,7 @@ import { StatusBar } from './components/status-bar/status-bar';
   imports: [
     Toolbar,
     MapComponent,
-    EntityList,
-    StatusBar,
+    EntityList
   ],
   templateUrl: './app.html',
   styleUrl: './app.css'

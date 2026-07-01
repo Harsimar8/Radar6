@@ -30,7 +30,6 @@ import { EntityType } from '../../../core/enums/EntityType';
 export class LeafletMap implements AfterViewInit {
 
   private map!: L.Map;
-
   private markers = L.layerGroup();
 
   private aircraftIcon = L.icon({
@@ -45,274 +44,131 @@ export class LeafletMap implements AfterViewInit {
     iconAnchor: [16, 16]
   });
 
-    constructor(
-  public simulationService: SimulationService,
-  private entityService: EntityService,
-  private mapSyncService: MapSyncService
-) {
-
+  constructor(
+    public simulationService: SimulationService,
+    private entityService: EntityService,
+    private mapSyncService: MapSyncService
+  ) {
+    // 1. React to entity changes
     effect(() => {
-
-      // React whenever the entity list changes
       this.entityService.entities();
-
-      // Map not ready yet
-      if (!this.map) {
-        return;
-      }
-
-      this.redrawEntities();
-
+      if (this.map) this.redrawEntities();
     });
 
+    // 2. Handle panel resize
     effect(() => {
+      this.simulationService.panelMode();
+      if (this.map) {
+        setTimeout(() => this.map.invalidateSize(), 50);
+      }
+    });
 
-  // Listen for panel mode changes
-  this.simulationService.panelMode();
-
-  if (!this.map) {
-    return;
-  }
-
-  setTimeout(() => {
-    this.map.invalidateSize();
-  }, 50);
-
-});
-
+    // 3. Sync from Cesium (with guard)
     effect(() => {
+      const camera = this.mapSyncService.center();
+      if (!this.map || camera.source === 'leaflet') return;
 
-  const camera = this.mapSyncService.center();
-
-  if (!this.map) {
-    return;
-  }
-
-  // Ignore updates that originated from Leaflet
-  if (camera.source === 'leaflet') {
-    return;
-  }
-
-  this.map.setView(
-    [camera.latitude, camera.longitude],
-    camera.zoom,
-    {
-      animate: false
-    }
-  );
-
-});
-
-    
-
+      // Prevent unnecessary jumps if difference is tiny
+      const currentCenter = this.map.getCenter();
+      if (Math.abs(currentCenter.lat - camera.latitude) > 0.001 || 
+          Math.abs(currentCenter.lng - camera.longitude) > 0.001 ||
+          this.map.getZoom() !== camera.zoom) {
+        this.map.setView([camera.latitude, camera.longitude], camera.zoom, { animate: false });
+      }
+    });
   }
 
   ngAfterViewInit(): void {
-
     this.initializeMap();
-
     this.initializeTileLayer();
-
     this.markers.addTo(this.map);
-
     this.initializeClickHandler();
-
-    // Draw entities already stored (refresh support)
     this.redrawEntities();
-
   }
 
   private initializeMap(): void {
+    this.map = L.map('leaflet-map').setView([20.5937, 78.9629], 5);
 
-    this.map = L.map('leaflet-map').setView(
-      [20.5937, 78.9629],
-      5
-    );
-
-      this.map.on('moveend zoomend', () => {
-
-  const center = this.map.getCenter();
-
-this.mapSyncService.update(
-  center.lat,
-  center.lng,
-  this.map.getZoom(),
-  'leaflet'
-);
-
-});
-
+    // Only emit to service on user-initiated events
+    this.map.on('dragend zoomend', () => {
+      const center = this.map.getCenter();
+      this.mapSyncService.update(
+        center.lat,
+        center.lng,
+        this.map.getZoom(),
+        'leaflet'
+      );
+    });
   }
 
   private initializeTileLayer(): void {
-
-    L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {
-        attribution: '© OpenStreetMap'
-      }
-    ).addTo(this.map);
-
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(this.map);
   }
 
   private initializeClickHandler(): void {
-
     this.map.on('click', (event: L.LeafletMouseEvent) => {
-
       switch (this.simulationService.currentTool()) {
-
         case EditorTool.Aircraft:
-          this.placeAircraft(
-            event.latlng.lat,
-            event.latlng.lng
-          );
+          this.placeAircraft(event.latlng.lat, event.latlng.lng);
           break;
-
         case EditorTool.Radar:
-          this.placeRadar(
-            event.latlng.lat,
-            event.latlng.lng
-          );
+          this.placeRadar(event.latlng.lat, event.latlng.lng);
           break;
-
       }
-
     });
-
   }
 
   private placeAircraft(lat: number, lng: number): void {
+    const selected = this.simulationService.selectedTemplate();
+    const aircraft = new Aircraft(
+      IdGenerator.generate('Aircraft'),
+      selected?.name ?? 'Aircraft',
+      new Position(lat, lng, selected?.altitude ?? 10000),
+      selected?.speed ?? 0,
+      selected?.heading ?? 0
+    );
+    this.entityService.addEntity(aircraft);
+  }
 
-  const selected = this.simulationService.selectedTemplate();
-
-  const aircraft = new Aircraft(
-
-    IdGenerator.generate('Aircraft'),
-
-    selected?.name ?? 'Aircraft',
-
-    new Position(
-
-      lat,
-
-      lng,
-
-      selected?.altitude ?? 10000
-
-    ),
-
-    selected?.speed ?? 0,
-
-    selected?.heading ?? 0
-
-  );
-
-  this.entityService.addEntity(aircraft);
-
-}
-
-   private placeRadar(lat: number, lng: number): void {
-
-  const selected = this.simulationService.selectedTemplate();
-
-  const radar = new Radar(
-
-    IdGenerator.generate('Radar'),
-
-    selected?.name ?? 'Radar',
-
-    new Position(
-
-      lat,
-
-      lng,
-
-      0
-
-    ),
-
-    selected?.range ?? 50000
-
-  );
-
-  this.entityService.addEntity(radar);
-
-}
+  private placeRadar(lat: number, lng: number): void {
+    const selected = this.simulationService.selectedTemplate();
+    const radar = new Radar(
+      IdGenerator.generate('Radar'),
+      selected?.name ?? 'Radar',
+      new Position(lat, lng, 0),
+      selected?.range ?? 50000
+    );
+    this.entityService.addEntity(radar);
+  }
 
   private redrawEntities(): void {
-
     this.markers.clearLayers();
-
-    const entities = this.entityService.entities();
-
-    for (const entity of entities) {
-
+    for (const entity of this.entityService.entities()) {
       this.drawEntity(entity);
-
     }
-
   }
 
   private drawEntity(entity: Entity): void {
-
-    let icon = this.aircraftIcon;
-
-    switch (entity.type) {
-
-      case EntityType.Radar:
-        icon = this.radarIcon;
-        break;
-
-      case EntityType.Aircraft:
-      default:
-        icon = this.aircraftIcon;
-        break;
-
-    }
-
-    const marker = L.marker(
-  [
-    entity.position.latitude,
-    entity.position.longitude
-  ],
-  {
-    icon
-  }
-);
-
-marker.bindPopup(entity.name);
-
-marker.on('mouseover', () => {
-  this.simulationService.selectEntity(entity);
-});
-
-
-
-marker.addTo(this.markers);
+    const icon = entity.type === EntityType.Radar ? this.radarIcon : this.aircraftIcon;
+    const marker = L.marker([entity.position.latitude, entity.position.longitude], { icon });
+    
+    marker.bindPopup(entity.name);
+    marker.on('mouseover', () => this.simulationService.selectEntity(entity));
+    marker.addTo(this.markers);
 
     if (entity.type === EntityType.Radar) {
-
       this.drawRadarRange(entity as Radar);
-
     }
-
   }
 
   private drawRadarRange(radar: Radar): void {
-
-    L.circle(
-      [
-        radar.position.latitude,
-        radar.position.longitude
-      ],
-      {
-        radius: radar.range,
-        color: 'red',
-        weight: 2,
-        fillOpacity: 0.1
-      }
-    ).addTo(this.markers);
-
+    L.circle([radar.position.latitude, radar.position.longitude], {
+      radius: radar.range,
+      color: 'red',
+      weight: 2,
+      fillOpacity: 0.1
+    }).addTo(this.markers);
   }
-
 }

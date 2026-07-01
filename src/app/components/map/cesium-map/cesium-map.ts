@@ -44,109 +44,109 @@ implements AfterViewInit, OnDestroy {
   constructor() {
 
    effect(() => {
+      const camera = this.mapSyncService.center();
+      if (!this.viewer || camera.source === 'cesium') return;
 
-  const camera = this.mapSyncService.center();
+      const height = this.getCameraHeight(camera.zoom);
 
-  if (!this.viewer) return;
+      this.viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(
+          camera.longitude,
+          camera.latitude,
+          height
+        ),
+        duration: 0.1
+      });
+    });
 
-  const zoom = camera.zoom;
+   effect(() => {
+      this.entityService.entities();
+      if (this.viewer) {
+        this.viewer.entities.removeAll();
+        this.drawEntities();
+      }
+    });
 
-  const height =
-    Math.max(500, 20000000 / Math.pow(2, zoom));
-
-  this.viewer.camera.setView({
-    destination: Cesium.Cartesian3.fromDegrees(
-      camera.longitude,
-      camera.latitude,
-      height
-    )
-  });
-
-});
-
-effect(() => {
-
-  // Listen for entity changes
-  this.entityService.entities();
-
-  if (!this.viewer) {
-    return;
+  // 3. Resize handler
+    effect(() => {
+      this.simulationService.panelMode();
+      if (this.viewer) {
+        setTimeout(() => {
+          this.viewer.resize();
+          this.viewer.scene.requestRender();
+        }, 50);
+      }
+    });
   }
 
-  console.log("Refreshing Cesium...");
-
-  this.viewer.entities.removeAll();
-
-  this.drawEntities();
-
-});
-
-effect(() => {
-
-  // Listen for panel mode changes
-  this.simulationService.panelMode();
-
-  if (!this.viewer) {
-    return;
-  }
-
-  setTimeout(() => {
-
-    this.viewer.resize();
-
-    this.viewer.scene.requestRender();
-
-  }, 50);
-
-});
-
-  }   // <-- constructor ends here
+    // <-- constructor ends here
 
    ngAfterViewInit(): void {
 
     Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzY2ZiMTI4MC0yODcxLTRhN2MtYTVmNi01MmFlYThjMzllODIiLCJpZCI6NDQyMjYxLCJzdWIiOiJIYXJzaW1hcjA4IiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6IlVudGl0bGVkIiwiaWF0IjoxNzgyODAxMjQwfQ.FCFiKY8xR6oixiTfcg9AaQLL3Xb4IidcE-9aInSeQ88";
 
-this.viewer = new Cesium.Viewer("cesiumContainer", {
-  terrain: Cesium.Terrain.fromWorldTerrain(),
-  animation: false,
-  timeline: false,
-  homeButton: true,
-  sceneModePicker: true,
-  baseLayerPicker: true,
-  navigationHelpButton: false,
-  geocoder: false,
-});
+    this.viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false,
+      timeline: false,
+      homeButton: true,
+      sceneModePicker: true,
+      baseLayerPicker: true,
+      navigationHelpButton: false,
+      geocoder: false,
+    });
 
-
-console.log(this.viewer);
-console.log(this.viewer.scene);
-console.log(this.viewer.scene.globe);
-console.log(this.viewer.scene.terrainProvider);
-  this.viewer.scene.globe.depthTestAgainstTerrain = false;
-this.viewer.scene.globe.maximumScreenSpaceError = 1.5;
-this.viewer.scene.requestRenderMode = false;
-this.viewer.scene.globe.depthTestAgainstTerrain = false;
-this.viewer.scene.globe.maximumScreenSpaceError = 1.5;
-
-this.viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
-this.viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000000;
-   
-  this.viewer.camera.flyTo({
-  destination: Cesium.Cartesian3.fromDegrees(
-    86.9250,
-    27.9881,
-    12000
-  )
-});
-
-  this.initializeClickHandler();
-
-  this.initializeSelectionHandler();
-  this.initializeCameraSync();
-
-  this.drawEntities();
+    this.viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
+    this.viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000000;
+    
+    this.initializeClickHandler();
+    this.initializeSelectionHandler();
+    this.initializeCameraSync();
+    this.drawEntities();
 
 }
+
+private initializeCameraSync(): void {
+  this.viewer.camera.changed.addEventListener(() => {
+    // Get the center of the screen
+    const center = new Cesium.Cartesian2(
+      this.viewer.canvas.clientWidth / 2,
+      this.viewer.canvas.clientHeight / 2
+    );
+    
+    const ray = this.viewer.camera.getPickRay(center);
+    
+    // ADD THIS NULL CHECK: 
+    // The compiler needs to know that 'ray' is defined before using it
+    if (!Cesium.defined(ray)) {
+      return;
+    }
+
+    // Now TypeScript knows 'ray' is safe to use
+    const cartesian = this.viewer.scene.globe.pick(ray, this.viewer.scene);
+    
+    if (!cartesian) return;
+
+    const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+    const latitude = Cesium.Math.toDegrees(cartographic.latitude);
+    const longitude = Cesium.Math.toDegrees(cartographic.longitude);
+
+    // Get current height for zoom estimation
+    const height = this.viewer.camera.positionCartographic.height;
+    const zoom = Math.round(Math.log2(20000000 / Math.max(1, height)));
+
+    this.mapSyncService.update(latitude, longitude, zoom, 'cesium');
+  });
+}
+
+private getCameraHeight(zoom: number): number {
+    const heights: { [key: number]: number } = {
+        1: 20000000, 2: 10000000, 3: 5000000, 4: 2500000, 5: 1200000,
+        6: 600000, 7: 300000, 8: 150000, 9: 75000, 10: 40000,
+        11: 20000, 12: 10000, 13: 5000, 14: 2500, 15: 1200, 16: 600
+    };
+    return heights[zoom] || 300;
+  }
   private initializeClickHandler(): void {
 
   const handler = new Cesium.ScreenSpaceEventHandler(
@@ -412,62 +412,8 @@ scaleByDistance: new Cesium.NearFarScalar(
     }
 
   }
-   private initializeCameraSync(): void {
+   
+ 
 
-  this.viewer.camera.changed.addEventListener(() => {
-
-    const cartographic =
-      Cesium.Cartographic.fromCartesian(
-        this.viewer.camera.position
-      );
-
-    const latitude =
-      Cesium.Math.toDegrees(cartographic.latitude);
-
-    const longitude =
-      Cesium.Math.toDegrees(cartographic.longitude);
-
-    const height =
-      cartographic.height;
-
-    const zoom =
-      Math.round(
-        Math.log2(20000000 / height)
-      );
-
-    this.mapSyncService.update(
-  latitude,
-  longitude,
-  zoom,
-  'cesium'
-);
-
-  });
-
-}
-
-  private getCameraHeight(zoom: number): number {
-
-  switch (zoom) {
-    case 1: return 20000000;
-    case 2: return 10000000;
-    case 3: return 5000000;
-    case 4: return 2500000;
-    case 5: return 1200000;
-    case 6: return 600000;
-    case 7: return 300000;
-    case 8: return 150000;
-    case 9: return 75000;
-    case 10: return 40000;
-    case 11: return 20000;
-    case 12: return 10000;
-    case 13: return 5000;
-    case 14: return 2500;
-    case 15: return 1200;
-    case 16: return 600;
-    default: return 300;
-  }
-
-}
-
+  
 }
