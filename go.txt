@@ -1,0 +1,50 @@
+Sensors
+Combat
+Air Defence
+Naval
+Electronic Warfare
+Command & Control
+Support
+Targets
+
+
+Sensors
+Platforms
+Air Defence
+Weapons
+Electronic Warfare
+Targets
+
+
+
+Reconnaissance
+ Combat 
+Air Defence
+ Naval 
+Electronic Warfare
+ Command & Control
+ Support
+ Targets
+
+
+
+
+
+Detection
+Engagement
+Defence
+Maritime
+Electronic Warfare
+Targets
+
+
+
+
+This is fully data-driven:
+
+Level 1: Sensors, Platforms, Weapons, Air Defence, Electronic Warfare, Targets
+Level 2: Radar, Aircraft, Missile, SAM, Jammer, etc.
+Level 3: Search Radar, Fighter, Air-to-Air, Long Range, etc.
+Level 4: Actual assets like AN/TPS-77, F-16 Block 70, AIM-120D, S-400.
+
+
