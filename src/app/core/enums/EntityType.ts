@@ -8,6 +8,12 @@ export enum EntityType {
 
   Missile = 'Missile',
 
-  GroundTarget = 'Ground Target'
+  GroundTarget = 'Ground Target',
+
+  AWACS = 'AWACS',
+
+  UAV = 'UAV',
+
+  Ship = 'Ship'
 
 }

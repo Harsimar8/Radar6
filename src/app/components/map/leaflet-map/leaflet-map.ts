@@ -6,10 +6,10 @@ import {
 
 import * as L from 'leaflet';
 import { MapSyncService } from '../../../services/map-sync.service';
-
+import { AssetSelectionService } from '../../../services/asset-selection.service';
 import { SimulationService } from '../../../services/simulation.service';
 import { EntityService } from '../../../services/entity.service';
-
+import { AssetFactory } from '../../../core/asset-library/factories/asset-factory';
 import { Aircraft } from '../../../core/models/Aircraft';
 import { Radar } from '../../../core/models/Radar';
 import { Entity } from '../../../core/models/Entity';
@@ -45,10 +45,11 @@ export class LeafletMap implements AfterViewInit {
   });
 
   constructor(
-    public simulationService: SimulationService,
-    private entityService: EntityService,
-    private mapSyncService: MapSyncService
-  ) {
+  public simulationService: SimulationService,
+  private entityService: EntityService,
+  private mapSyncService: MapSyncService,
+  private assetSelectionService: AssetSelectionService
+) {
     // 1. React to entity changes
     effect(() => {
       this.entityService.entities();
@@ -110,19 +111,40 @@ export class LeafletMap implements AfterViewInit {
   ).addTo(this.map);
 }
 
-  private initializeClickHandler(): void {
-    this.map.on('click', (event: L.LeafletMouseEvent) => {
-      switch (this.simulationService.currentTool()) {
-        case EditorTool.Aircraft:
-          this.placeAircraft(event.latlng.lat, event.latlng.lng);
-          break;
-        case EditorTool.Radar:
-          this.placeRadar(event.latlng.lat, event.latlng.lng);
-          break;
-      }
-    });
-  }
+    private initializeClickHandler(): void {
 
+  this.map.on('click', (event: L.LeafletMouseEvent) => {
+
+    const selectedAsset = this.assetSelectionService.selectedAsset();
+
+    if (selectedAsset) {
+
+      this.placeAsset(
+    selectedAsset,
+    event.latlng.lat,
+    event.latlng.lng
+);
+
+return;
+
+    }
+
+    // Existing tool-based placement
+    switch (this.simulationService.currentTool()) {
+
+      case EditorTool.Aircraft:
+        this.placeAircraft(event.latlng.lat, event.latlng.lng);
+        break;
+
+      case EditorTool.Radar:
+        this.placeRadar(event.latlng.lat, event.latlng.lng);
+        break;
+
+    }
+
+  });
+
+}
   private placeAircraft(lat: number, lng: number): void {
     const selected = this.simulationService.selectedTemplate();
     const aircraft = new Aircraft(
@@ -145,6 +167,20 @@ export class LeafletMap implements AfterViewInit {
     );
     this.entityService.addEntity(radar);
   }
+
+   private placeAsset(asset: any, lat: number, lng: number): void {
+
+    const entity = AssetFactory.create(
+        asset,
+        lat,
+        lng
+    );
+
+    this.entityService.addEntity(entity);
+
+    console.log("Placed:", entity);
+
+}
 
   private redrawEntities(): void {
     this.markers.clearLayers();

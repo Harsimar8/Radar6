@@ -1,0 +1,25 @@
+@for (category of categories(); track category.id) {
+
+    <h3>{{ category.name }}</h3>
+
+    @for (subCategory of category.subCategories; track subCategory.id) {
+
+        <h4 style="margin-left:20px">
+            {{ subCategory.name }}
+        </h4>
+
+        @for (asset of subCategory.assets; track asset.id) {
+
+            <button
+                style="margin-left:40px"
+                (click)="selectAsset(asset)">
+
+                {{ asset.name }}
+
+            </button>
+
+        }
+
+    }
+
+}

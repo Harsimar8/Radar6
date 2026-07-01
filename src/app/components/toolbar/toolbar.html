@@ -4,7 +4,20 @@
         Select
     </button>
 
-    <button (click)="simulationService.setTool(EditorTool.Aircraft)">
+    <input
+    #fileInput
+    type="file"
+    accept=".json"
+    hidden
+    (change)="onFileSelected($event)">
+
+<button (click)="fileInput.click()">
+    Upload JSON
+</button>
+
+<app-asset-browser></app-asset-browser>
+
+    <!-- <button (click)="simulationService.setTool(EditorTool.Aircraft)">
         Aircraft
     </button>
 
@@ -22,7 +35,7 @@
 
     <button (click)="simulationService.setTool(EditorTool.GroundTarget)">
         Ground Target
-    </button>
+    </button> -->
 
     <span class="spacer"></span>
 
