@@ -130,6 +130,7 @@ private initializeCameraSync(): void {
     const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
     const latitude = Cesium.Math.toDegrees(cartographic.latitude);
     const longitude = Cesium.Math.toDegrees(cartographic.longitude);
+    const altitude = cartographic.height;
 
     // Get current height for zoom estimation
     const height = this.viewer.camera.positionCartographic.height;
@@ -189,7 +190,8 @@ if (!cartesian) return;
 
     const longitude =
       Cesium.Math.toDegrees(cartographic.longitude);
-
+     
+     const altitude = cartographic.height; 
     switch (this.simulationService.currentTool()) {
 
       case EditorTool.Aircraft:
@@ -197,7 +199,7 @@ if (!cartesian) return;
         break;
 
       case EditorTool.Radar:
-        this.placeRadar(latitude, longitude);
+       this.placeRadar(latitude, longitude, altitude);
         break;
 
     }
@@ -229,7 +231,11 @@ if (!cartesian) return;
 
 }
 
-  private placeRadar(lat: number, lng: number): void {
+  private placeRadar(
+  lat: number,
+  lng: number,
+  altitude: number
+): void {
 
   const selected =
     this.simulationService.selectedTemplate();
@@ -241,10 +247,10 @@ if (!cartesian) return;
     selected?.name ?? 'Radar',
 
     new Position(
-      lat,
-      lng,
-      0
-    ),
+  lat,
+  lng,
+  altitude
+),
 
     selected?.range ?? 50000
 
@@ -344,10 +350,10 @@ scaleByDistance: new Cesium.NearFarScalar(
       name: radar.name,
 
       position: Cesium.Cartesian3.fromDegrees(
-        radar.position.longitude,
-        radar.position.latitude,
-        0
-      ),
+  radar.position.longitude,
+  radar.position.latitude,
+  radar.position.altitude
+),
 
       point: {
         pixelSize: 12,

@@ -102,10 +102,13 @@ export class LeafletMap implements AfterViewInit {
   }
 
   private initializeTileLayer(): void {
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap'
-    }).addTo(this.map);
-  }
+  L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+    {
+      attribution: '&copy; OpenStreetMap &copy; CARTO'
+    }
+  ).addTo(this.map);
+}
 
   private initializeClickHandler(): void {
     this.map.on('click', (event: L.LeafletMouseEvent) => {
