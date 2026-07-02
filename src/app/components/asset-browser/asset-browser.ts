@@ -1,9 +1,11 @@
 import { Component, computed, effect } from '@angular/core';
-import { KeyValuePipe } from '@angular/common';
+
 import { AssetLibraryService } from '../../core/asset-library/services/asset-library.service';
 import { AssetSelectionService } from '../../services/asset-selection.service';
-
+import { KeyValuePipe } from '@angular/common';
 import { Asset } from '../../core/asset-library/models/asset';
+import { SimulationService } from '../../services/simulation.service';
+import { EntityService } from '../../services/entity.service';
 
 interface AssetRoleGroup {
   role: string;
@@ -25,101 +27,135 @@ interface AssetTypeGroup {
 export class AssetBrowser {
 
   constructor(
-    private assetLibraryService: AssetLibraryService,
-    public assetSelectionService: AssetSelectionService
-){
-
-     effect(() => {
-
-    console.log("Placement Mode:", this.assetSelectionService.placing());
-
-  });
-
-  }
+  private assetLibraryService: AssetLibraryService,
+  public assetSelectionService: AssetSelectionService,
+  public simulationService: SimulationService,
+  private entityService: EntityService
+) {
+    effect(() => {
+        console.log("Placement Mode:", this.assetSelectionService.placing());
+    });
+}
 
   expandedCategory = '';
 
-expandedType = '';
+  expandedType = '';
 
-expandedRole = '';
+  expandedRole = '';
+  selectedBrowserAsset: Asset | null = null;
+
+  hoveredAsset: Asset | null = null;
 
   groupedCategories = computed(() => {
 
-  return this.categories().map(category => {
+    return this.categories().map(category => {
 
-    const groups = new Map<string, Map<string, Asset[]>>();
+      const groups = new Map<string, Map<string, Asset[]>>();
 
-    for (const asset of category.assets) {
+      for (const asset of category.assets) {
 
-      const entityType = asset.entityType;
-      const role = asset.role;
+        const entityType = asset.entityType;
+        const role = asset.role;
 
-      if (!groups.has(entityType)) {
-        groups.set(entityType, new Map());
+        if (!groups.has(entityType)) {
+          groups.set(entityType, new Map());
+        }
+
+        const roleMap = groups.get(entityType)!;
+
+        if (!roleMap.has(role)) {
+          roleMap.set(role, []);
+        }
+
+        roleMap.get(role)!.push(asset);
+
       }
 
-      const roleMap = groups.get(entityType)!;
+      return {
 
-      if (!roleMap.has(role)) {
-        roleMap.set(role, []);
-      }
+        id: category.id,
 
-      roleMap.get(role)!.push(asset);
-    }
+        name: category.name,
 
-    return {
-
-      id: category.id,
-
-      name: category.name,
-
-      types: Array.from(groups.entries()).map(([entityType, roleMap]) => ({
-        entityType,
-        roles: Array.from(roleMap.entries()).map(([role, assets]) => ({
-          role,
-          assets
+        types: Array.from(groups.entries()).map(([entityType, roleMap]) => ({
+          entityType,
+          roles: Array.from(roleMap.entries()).map(([role, assets]) => ({
+            role,
+            assets
+          }))
         }))
-      }))
 
-    };
+      };
+
+    });
 
   });
-
-});
 
   categories = computed(() =>
     this.assetLibraryService.library()?.categories ?? []
   );
 
-  
-
   toggleCategory(id: string): void {
+    this.expandedCategory = this.expandedCategory === id ? '' : id;
+  }
 
-  this.expandedCategory =
-    this.expandedCategory === id ? '' : id;
+  toggleType(type: string): void {
+    this.expandedType = this.expandedType === type ? '' : type;
+  }
 
-}
+  toggleRole(role: string): void {
+    this.expandedRole = this.expandedRole === role ? '' : role;
+  }
 
-toggleType(type: string): void {
+  showProperties(asset: Asset): void {
 
-  this.expandedType =
-    this.expandedType === type ? '' : type;
-
-}
-
-toggleRole(role: string): void {
-
-  this.expandedRole =
-    this.expandedRole === role ? '' : role;
+  this.hoveredAsset = asset;
 
 }
+deleteSelectedEntity(): void {
 
+    const entity = this.simulationService.selectedEntity();
+
+    if (!entity) {
+        return;
+    }
+
+    this.entityService.removeEntity(entity.id);
+
+    this.simulationService.selectEntity(null);
+}
+
+closeSelectedEntity(): void {
+
+    this.simulationService.selectEntity(null);
+
+}
+hideProperties(): void {
+
+  this.hoveredAsset = null;
+
+}
   selectAsset(asset: Asset): void {
 
-    this.assetSelectionService.select(asset);
+    console.log("Asset clicked:", asset);
 
-    console.log(asset);
+    this.selectedBrowserAsset = asset;
 
-  }
+}
+closePreview(): void {
+
+    this.selectedBrowserAsset = null;
+
+}
+
+placeSelectedAsset(): void {
+
+    if (!this.selectedBrowserAsset) {
+        return;
+    }
+
+    this.assetSelectionService.select(this.selectedBrowserAsset);
+
+}
 
 }

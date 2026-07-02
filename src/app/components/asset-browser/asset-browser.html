@@ -1,85 +1,170 @@
-@for (category of groupedCategories(); track category.id) {
+<div class="left-panel">
 
-    <h3 (click)="toggleCategory(category.id)" style="cursor:pointer">
-        {{ expandedCategory === category.id ? '▼' : '▶' }}
-        {{ category.name }}
-    </h3>
+    <div class="browser-panel">
 
-    @if (expandedCategory === category.id) {
+        @for (category of groupedCategories(); track category.id) {
 
-        @for (type of category.types; track type.entityType) {
+            <h3 (click)="toggleCategory(category.id)" style="cursor:pointer">
 
-            <div style="margin-left:20px">
+                {{ expandedCategory === category.id ? '▼' : '▶' }}
 
-                <b (click)="toggleType(type.entityType)" style="cursor:pointer">
-                    {{ expandedType === type.entityType ? '▼' : '▶' }}
-                    {{ type.entityType }}
-                </b>
+                {{ category.name }}
 
-                @if (expandedType === type.entityType) {
+            </h3>
 
-                    @for (role of type.roles; track role.role) {
+            @if (expandedCategory === category.id) {
 
-                        <div style="margin-left:20px">
+                @for (type of category.types; track type.entityType) {
 
-                            <i (click)="toggleRole(role.role)" style="cursor:pointer">
-                                {{ expandedRole === role.role ? '▼' : '▶' }}
-                                {{ role.role }}
-                            </i>
+                    <div style="margin-left:20px">
 
-                            @if (expandedRole === role.role) {
+                        <b (click)="toggleType(type.entityType)" style="cursor:pointer">
 
-                                @for (asset of role.assets; track asset.id) {
+                            {{ expandedType === type.entityType ? '▼' : '▶' }}
 
-                                    <div style="margin-left:20px">
+                            {{ type.entityType }}
 
-                                        <button (click)="selectAsset(asset)">
-                                            {{ asset.name }}
-                                        </button>
+                        </b>
 
-                                    </div>
+                        @if (expandedType === type.entityType) {
 
-                                }
+                            @for (role of type.roles; track role.role) {
+
+                                <div style="margin-left:20px">
+
+                                    <i (click)="toggleRole(role.role)" style="cursor:pointer">
+
+                                        {{ expandedRole === role.role ? '▼' : '▶' }}
+
+                                        {{ role.role }}
+
+                                    </i>
+
+                                    @if (expandedRole === role.role) {
+
+                                        @for (asset of role.assets; track asset.id) {
+
+                                            <div style="margin-left:20px">
+
+                                                <button
+                                                    (mouseenter)="showProperties(asset)"
+                                                    (mouseleave)="hideProperties()"
+                                                    (click)="selectAsset(asset)">
+
+                                                    {{ asset.name }}
+
+                                                </button>
+
+                                            </div>
+
+                                        }
+
+                                    }
+
+                                </div>
 
                             }
 
-                        </div>
+                        }
 
-                    }
+                    </div>
 
                 }
 
-            </div>
+            }
 
         }
 
-    }
+    </div>
 
-}
+    
 
-<hr>
 
-@if (assetSelectionService.selectedAsset(); as asset) {
 
-    <h3>{{ asset.name }}</h3>
+@if (selectedBrowserAsset) {
 
-    <p><b>Entity Type:</b> {{ asset.entityType }}</p>
+<div class="asset-preview">
 
-    <p><b>Role:</b> {{ asset.role }}</p>
+    <div class="preview-header">
 
-    <h4>Properties</h4>
+        <h3>Asset Preview</h3>
 
-    @for (property of asset.properties | keyvalue; track property.key) {
+        <button class="close-btn"
+                (click)="closePreview()">
+
+            ✕
+
+        </button>
+
+    </div>
+
+    <hr>
+
+    <p><b>Name:</b> {{ selectedBrowserAsset.name }}</p>
+
+    <p><b>Type:</b> {{ selectedBrowserAsset.entityType }}</p>
+
+    <p><b>Role:</b> {{ selectedBrowserAsset.role }}</p>
+
+    <hr>
+
+    @for (property of selectedBrowserAsset.properties | keyvalue; track property.key) {
 
         <p>
-            <b>{{ property.key }}</b> :
+
+            <b>{{ property.key }}</b>
+
             {{ property.value }}
+
         </p>
 
     }
 
-    <button (click)="assetSelectionService.startPlacement()">
+    <button (click)="placeSelectedAsset()">
+
         Place Asset
+
     </button>
 
+</div>
+
 }
+
+@if (simulationService.selectedEntity(); as entity) {
+
+<div class="selected-entity">
+
+    <div class="preview-header">
+
+        <h3>Selected Entity</h3>
+
+        <button
+            class="close-btn"
+            (click)="closeSelectedEntity()">
+
+            ✕
+
+        </button>
+
+    </div>
+
+    <hr>
+
+    <p><b>Name:</b> {{ entity.name }}</p>
+
+    <p><b>Type:</b> {{ entity.type }}</p>
+
+    <p><b>Latitude:</b> {{ entity.position.latitude }}</p>
+
+    <p><b>Longitude:</b> {{ entity.position.longitude }}</p>
+
+    <button (click)="deleteSelectedEntity()">
+
+        Delete Entity
+
+    </button>
+
+</div>
+
+}
+</div>

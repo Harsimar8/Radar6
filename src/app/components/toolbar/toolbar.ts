@@ -4,12 +4,11 @@ import { SimulationService } from '../../services/simulation.service';
 import { AssetLibraryService } from '../../core/asset-library/services/asset-library.service';
 import { EditorTool } from '../../core/enums/EditorTool';
 import { ViewMode } from '../../core/enums/ViewMode';
-import { AssetBrowser } from '../asset-browser/asset-browser';
 
 @Component({
   selector: 'app-toolbar',
   standalone: true,
-  imports: [AssetBrowser],
+  imports: [],
   templateUrl: './toolbar.html',
   styleUrl: './toolbar.css'
 })
