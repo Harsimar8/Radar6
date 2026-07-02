@@ -14,13 +14,21 @@ export class AssetSelectionService {
 
   readonly placing = this._placing.asReadonly();
 
-  select(asset: Asset): void {
+ select(asset: Asset): void {
 
     this._selectedAsset.set(asset);
 
-    this._placing.set(true);
+}
 
-  }
+startPlacement(): void {
+
+    if (this._selectedAsset()) {
+
+        this._placing.set(true);
+
+    }
+
+}
 
   clear(): void {
 

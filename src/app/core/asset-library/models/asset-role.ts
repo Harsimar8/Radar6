@@ -1,6 +1,6 @@
 import { Asset } from './asset';
 
-export interface AssetCategory {
+export interface AssetRole {
 
     id: string;
 

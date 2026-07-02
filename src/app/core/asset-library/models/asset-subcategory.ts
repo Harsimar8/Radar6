@@ -1,4 +1,4 @@
-import { Asset } from './asset';
+import { AssetRole } from './asset-role';
 
 export interface AssetSubCategory {
 
@@ -6,6 +6,6 @@ export interface AssetSubCategory {
 
     name: string;
 
-    assets: Asset[];
+    roles: AssetRole[];
 
 }

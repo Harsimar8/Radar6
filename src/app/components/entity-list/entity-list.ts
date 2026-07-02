@@ -4,8 +4,7 @@ import { SimulationService } from '../../services/simulation.service';
 
 import { EditorTool } from '../../core/enums/EditorTool';
 
-import { AIRCRAFT_LIBRARY } from '../../core/data/aircraft-library';
-import { RADAR_LIBRARY } from '../../core/data/radar-library';
+
 import { Radar } from '../../core/models/Radar';
 import { Aircraft } from '../../core/models/Aircraft';
 import { EntityType } from '../../core/enums/EntityType';
@@ -23,10 +22,6 @@ export class EntityList {
   EditorTool = EditorTool;
   hoveredItem: any = null;
   
-
-  aircraftList = AIRCRAFT_LIBRARY;
-
-  radarList = RADAR_LIBRARY;
 
   constructor(
   public simulationService: SimulationService,

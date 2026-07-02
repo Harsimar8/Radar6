@@ -6,6 +6,8 @@ export interface Asset {
 
     entityType: string;
 
+    role: string;
+
     properties: Record<string, any>;
 
 }

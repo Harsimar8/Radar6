@@ -1,25 +1,85 @@
-@for (category of categories(); track category.id) {
+@for (category of groupedCategories(); track category.id) {
 
-    <h3>{{ category.name }}</h3>
+    <h3 (click)="toggleCategory(category.id)" style="cursor:pointer">
+        {{ expandedCategory === category.id ? '▼' : '▶' }}
+        {{ category.name }}
+    </h3>
 
-    @for (subCategory of category.subCategories; track subCategory.id) {
+    @if (expandedCategory === category.id) {
 
-        <h4 style="margin-left:20px">
-            {{ subCategory.name }}
-        </h4>
+        @for (type of category.types; track type.entityType) {
 
-        @for (asset of subCategory.assets; track asset.id) {
+            <div style="margin-left:20px">
 
-            <button
-                style="margin-left:40px"
-                (click)="selectAsset(asset)">
+                <b (click)="toggleType(type.entityType)" style="cursor:pointer">
+                    {{ expandedType === type.entityType ? '▼' : '▶' }}
+                    {{ type.entityType }}
+                </b>
 
-                {{ asset.name }}
+                @if (expandedType === type.entityType) {
 
-            </button>
+                    @for (role of type.roles; track role.role) {
+
+                        <div style="margin-left:20px">
+
+                            <i (click)="toggleRole(role.role)" style="cursor:pointer">
+                                {{ expandedRole === role.role ? '▼' : '▶' }}
+                                {{ role.role }}
+                            </i>
+
+                            @if (expandedRole === role.role) {
+
+                                @for (asset of role.assets; track asset.id) {
+
+                                    <div style="margin-left:20px">
+
+                                        <button (click)="selectAsset(asset)">
+                                            {{ asset.name }}
+                                        </button>
+
+                                    </div>
+
+                                }
+
+                            }
+
+                        </div>
+
+                    }
+
+                }
+
+            </div>
 
         }
 
     }
+
+}
+
+<hr>
+
+@if (assetSelectionService.selectedAsset(); as asset) {
+
+    <h3>{{ asset.name }}</h3>
+
+    <p><b>Entity Type:</b> {{ asset.entityType }}</p>
+
+    <p><b>Role:</b> {{ asset.role }}</p>
+
+    <h4>Properties</h4>
+
+    @for (property of asset.properties | keyvalue; track property.key) {
+
+        <p>
+            <b>{{ property.key }}</b> :
+            {{ property.value }}
+        </p>
+
+    }
+
+    <button (click)="assetSelectionService.startPlacement()">
+        Place Asset
+    </button>
 
 }
