@@ -2,7 +2,7 @@ export enum EntityType {
 
   Aircraft = 'Aircraft',
 
-  Radar = 'Radar',
+  RadarSite = 'RadarSite',
 
   SamBattery = 'SAM Battery',
 

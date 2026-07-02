@@ -6,7 +6,6 @@ import {
   inject
 } from '@angular/core';
 
-import { Radar } from '../../../core/models/Radar';
 import { AssetFactory } from '../../../core/asset-library/factories/asset-factory';
 import * as Cesium from 'cesium';
 import { MapSyncService } from '../../../services/map-sync.service';
@@ -14,9 +13,8 @@ import { MapSyncService } from '../../../services/map-sync.service';
 import { SimulationService } from '../../../services/simulation.service';
 import { EntityService } from '../../../services/entity.service';
 import { AssetSelectionService } from '../../../services/asset-selection.service';
-
+import { EntityRenderService } from '../../../core/rendering/entity-render.service';
 import { Entity } from '../../../core/models/Entity';
-import { EntityType } from '../../../core/enums/EntityType';
 
 @Component({
   selector: 'app-cesium-map',
@@ -36,26 +34,34 @@ implements AfterViewInit, OnDestroy {
   private simulationService = inject(SimulationService);
 
   private mapSyncService = inject(MapSyncService);
+  private renderService = inject(EntityRenderService);
 
 
   private assetSelectionService = inject(AssetSelectionService);
   constructor() {
+  effect(() => {
 
-   effect(() => {
-      const camera = this.mapSyncService.center();
-      if (!this.viewer || camera.source === 'cesium') return;
+    const state = this.mapSyncService.view();
 
-      const height = this.getCameraHeight(camera.zoom);
+    if (!this.viewer) {
+        return;
+    }
 
-      this.viewer.camera.flyTo({
+    if (state.source !== 'leaflet') {
+        return;
+    }
+
+    this.viewer.camera.setView({
+
         destination: Cesium.Cartesian3.fromDegrees(
-          camera.longitude,
-          camera.latitude,
-          height
-        ),
-        duration: 0.1
-      });
+            state.longitude,
+            state.latitude,
+            this.getCameraHeight(state.zoom)
+        )
+
     });
+
+});
 
    effect(() => {
       this.entityService.entities();
@@ -94,12 +100,13 @@ implements AfterViewInit, OnDestroy {
       geocoder: false,
     });
 
+   
     this.viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
     this.viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000000;
     
     this.initializeClickHandler();
     this.initializeSelectionHandler();
-    this.initializeCameraSync();
+    // this.initializeCameraSync();
     this.drawEntities();
 
 }
@@ -143,12 +150,15 @@ implements AfterViewInit, OnDestroy {
         const zoom =
             Math.round(Math.log2(20000000 / Math.max(1, height)));
 
-        this.mapSyncService.update(
-            latitude,
-            longitude,
-            zoom,
-            'cesium'
-        );
+       this.mapSyncService.update({
+    latitude,
+    longitude,
+    zoom,
+    height,
+    source: 'cesium'
+});
+
+       
 
     });
 
@@ -271,95 +281,101 @@ private placeAsset(asset: any, lat: number, lng: number): void {
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
 }
-  private drawEntity(entity: Entity): void {
+ private drawEntity(entity: Entity): void {
+  
 
-  if (entity.type === EntityType.Aircraft) {
 
-    this.viewer.entities.add({
+   const style = this.renderService.getStyle(entity);
 
-      id: entity.id,
-      name: entity.name,
-
-      position: Cesium.Cartesian3.fromDegrees(
+    const position = Cesium.Cartesian3.fromDegrees(
         entity.position.longitude,
         entity.position.latitude,
         entity.position.altitude
-      ),
+    );
+    
 
-      point: {
-        pixelSize: 12,
-        color: Cesium.Color.BLUE,
-        scaleByDistance: new Cesium.NearFarScalar(
-          1.0e2,
-          1.5,
-          1.0e7,
-          0.8
-        )
-      },
 
-      label: {
-        text: entity.name,
-        pixelOffset: new Cesium.Cartesian2(0, -20),
-        scale: 0.7
-      }
 
-    });
 
-  }
+    const cesiumEntity: Cesium.Entity.ConstructorOptions = {
 
-  else if (entity.type === EntityType.Radar) {
+        id: entity.id,
 
-    const radar = entity as Radar;
+        name: entity.name,
 
-    this.viewer.entities.add({
+        position,
 
-      id: radar.id,
-      name: radar.name,
+        label: {
+            text: entity.name,
+            pixelOffset: new Cesium.Cartesian2(0, -22),
+            scale: 0.7
+        }
 
-      position: Cesium.Cartesian3.fromDegrees(
-        radar.position.longitude,
-        radar.position.latitude,
-        radar.position.altitude
-      ),
+    };
 
-      point: {
-        pixelSize: 12,
-        color: Cesium.Color.RED,
-        scaleByDistance: new Cesium.NearFarScalar(
-          1.0e2,
-          1.5,
-          1.0e7,
-          0.8
-        )
-      },
+    if (style.icon) {
 
-      label: {
-        text: radar.name,
-        pixelOffset: new Cesium.Cartesian2(0, -20),
-        scale: 0.7
-      }
+        cesiumEntity.billboard = {
 
-    });
+           image: style.icon,
 
-    this.viewer.entities.add({
+            width: 32,
 
-      position: Cesium.Cartesian3.fromDegrees(
-        radar.position.longitude,
-        radar.position.latitude
-      ),
+            height: 32,
 
-      ellipse: {
-        semiMajorAxis: radar.range,
-        semiMinorAxis: radar.range,
-        height: 0,
-        material: Cesium.Color.RED.withAlpha(0.2),
-        outline: true,
-        outlineColor: Cesium.Color.RED
-      }
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM
 
-    });
+        };
 
-  }
+    }
+
+    else {
+
+        cesiumEntity.point = {
+
+            pixelSize: 12,
+
+           color: Cesium.Color.fromCssColorString(
+    style.color
+)
+
+        };
+
+    }
+
+    this.viewer.entities.add(cesiumEntity);
+
+    const searchRange = entity.properties?.["searchRange"];
+
+    if (searchRange) {
+
+        this.viewer.entities.add({
+
+            position,
+
+            ellipse: {
+
+                semiMajorAxis: searchRange,
+
+                semiMinorAxis: searchRange,
+
+                height: 0,
+
+                material: Cesium.Color.fromCssColorString(
+    style.color
+).withAlpha(0.15),
+
+                outline: true,
+
+                
+
+            }
+
+        });
+
+    }
+
+   
 
 }
   private drawEntities(): void {

@@ -10,4 +10,8 @@ export interface Asset {
 
     properties: Record<string, any>;
 
+    icon?: string;
+
+    color?: string;
+
 }

@@ -25,7 +25,7 @@ export class Radar extends Entity {
 
       name,
 
-      EntityType.Radar,
+      EntityType.RadarSite,
 
       position,
 

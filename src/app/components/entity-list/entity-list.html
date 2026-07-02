@@ -1,5 +1,3 @@
-
-
 <hr>
 
 @if (simulationService.selectedEntity(); as entity) {
@@ -14,19 +12,19 @@
 
 <p><b>Longitude:</b> {{ entity.position.longitude }}</p>
 
- @if (isAircraft(entity)) {
-
-<p><b>Altitude:</b> {{ aircraft(entity).position.altitude }}</p>
-
-<p><b>Speed:</b> {{ aircraft(entity).speed }}</p>
-
-<p><b>Heading:</b> {{ aircraft(entity).heading }}</p>
-
+@if (entity.position.altitude !== undefined) {
+<p>
+    <b>Altitude:</b>
+    {{ entity.position.altitude }}
+</p>
 }
 
-@if (isRadar(entity)) {
+@for (property of entity.properties | keyvalue; track property.key) {
 
-<p><b>Range:</b> {{ radar(entity).range }}</p>
+<p>
+    <b>{{ property.key }}:</b>
+    {{ property.value }}
+</p>
 
 }
 
@@ -35,6 +33,3 @@
 </button>
 
 }
-
-
-

@@ -1,14 +1,11 @@
 import { Asset } from '../models/asset';
 
 import { Entity } from '../../models/Entity';
-import { Aircraft } from '../../models/Aircraft';
-import { Radar } from '../../models/Radar';
-
 import { Position } from '../../models/Position';
 
 import { EntityType } from '../../enums/EntityType';
-
 import { IdGenerator } from '../../utils/id-generator';
+import { Team } from '../../enums/Team';
 
 export class AssetFactory {
 
@@ -18,35 +15,28 @@ export class AssetFactory {
         longitude: number
     ): Entity {
 
-        switch (asset.entityType) {
+        return new GenericEntity(
 
-            case "Aircraft":
+            IdGenerator.generate(asset.entityType),
 
-                return new Aircraft(
-                    IdGenerator.generate("Aircraft"),
-                    asset.name,
-                    new Position(latitude, longitude, 10000),
-                    0,
-                    0
-                );
+            asset.name,
 
-            case "RadarSite":
+            asset.entityType as EntityType,
 
-                return new Radar(
-                    IdGenerator.generate("Radar"),
-                    asset.name,
-                    new Position(latitude, longitude, 0),
-                    asset.properties["searchRange"] ?? 50000
-                );
+            new Position(
+                latitude,
+                longitude,
+                asset.properties["altitude"] ?? 0
+            ),
 
-            default:
+            Team.Friendly,
 
-                throw new Error(
-                    "Unsupported asset type: " + asset.entityType
-                );
+            { ...asset.properties }
 
-        }
+        );
 
     }
 
 }
+
+class GenericEntity extends Entity {}

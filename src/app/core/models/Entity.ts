@@ -4,7 +4,7 @@ import { Team } from '../enums/Team';
 
 export abstract class Entity {
 
-  constructor(
+   constructor(
 
     public id: string,
 
@@ -14,8 +14,10 @@ export abstract class Entity {
 
     public position: Position,
 
-    public team: Team = Team.Friendly
+    public team: Team = Team.Friendly,
 
-  ) {}
+    public properties: Record<string, any> = {}
+
+) {}
 
 }

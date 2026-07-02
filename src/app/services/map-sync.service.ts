@@ -1,46 +1,37 @@
 import { Injectable, signal } from '@angular/core';
 
+export interface MapViewState {
+
+  latitude: number;
+  longitude: number;
+
+  // Leaflet zoom
+  zoom: number;
+
+  // Cesium camera height
+  height: number;
+
+  source: 'leaflet' | 'cesium';
+
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class MapSyncService {
-  // A lock to prevent circular feedback loops
-  private isUpdating = false;
 
-  readonly center = signal({
+  readonly view = signal<MapViewState>({
     latitude: 20.5937,
     longitude: 78.9629,
     zoom: 5,
-    source: '' as 'leaflet' | 'cesium' | ''
+    height: 1200000,
+    source: 'leaflet'
   });
 
-  update(
-    latitude: number,
-    longitude: number,
-    zoom: number,
-    source: 'leaflet' | 'cesium'
-  ) {
-    // If a sync is already in progress, ignore this update
-    if (this.isUpdating) {
-      return;
-    }
+  update(state: MapViewState): void {
 
-    // Set the lock
-    this.isUpdating = true;
+    this.view.set(state);
 
-    // Update the signal
-    this.center.set({
-      latitude,
-      longitude,
-      zoom,
-      source
-    });
-
-    // Release the lock after 100ms
-    // This delay is long enough to let the maps process the change
-    // but short enough that the user won't notice a delay
-    setTimeout(() => {
-      this.isUpdating = false;
-    }, 100);
   }
+
 }
