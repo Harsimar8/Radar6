@@ -17,44 +17,69 @@ export class Toolbar {
   EditorTool = EditorTool;
   ViewMode = ViewMode;
 
-  constructor(public simulationService: SimulationService, public assetLibraryService: AssetLibraryService) {}
+  constructor(
+  public simulationService: SimulationService,
+  public assetLibraryService: AssetLibraryService
+) {
+
+  const saved = localStorage.getItem('assetLibrary');
+
+  if (saved) {
+
+    this.assetLibraryService.setLibrary(
+      JSON.parse(saved)
+    );
+
+  }
+
+}
   categories = computed(() =>
     this.assetLibraryService.library()?.categories ?? []
 );
 
   onFileSelected(event: Event): void {
 
-    const input = event.target as HTMLInputElement;
+  const input = event.target as HTMLInputElement;
 
-    if (!input.files?.length)
-        return;
+  if (!input.files?.length) {
+    return;
+  }
 
-    const file = input.files[0];
+  const file = input.files[0];
 
-    const reader = new FileReader();
+  const reader = new FileReader();
 
-    reader.onload = () => {
+  reader.onload = () => {
 
-        try {
+    try {
 
-           const json = JSON.parse(reader.result as string);
+      const json = JSON.parse(reader.result as string);
 
-this.assetLibraryService.setLibrary(json);
+      this.assetLibraryService.setLibrary(json);
 
-console.log("Library uploaded successfully.");
+      // Save permanently
+      localStorage.setItem('assetLibrary', JSON.stringify(json));
 
-console.log(this.assetLibraryService.library());
+      console.log("Library uploaded successfully.");
 
-        }
-        catch (e) {
+    }
+    catch {
 
-            alert("Invalid JSON");
+      alert("Invalid JSON");
 
-        }
+    }
 
-    };
+  };
 
-    reader.readAsText(file);
+  reader.readAsText(file);
 
 }
+
+   removeJson(): void {
+
+    localStorage.removeItem('assetLibrary');
+
+    this.assetLibraryService.setLibrary(null as any);
+
+  }
 }
