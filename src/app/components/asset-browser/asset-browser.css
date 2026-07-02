@@ -57,3 +57,33 @@
     cursor: pointer;
 
 }
+
+.placement-banner {
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 8px 12px;
+
+    margin: 8px;
+
+    border-radius: 6px;
+
+    background: #dbeafe;
+
+    border: 1px solid #93c5fd;
+
+    font-weight: 500;
+}
+
+.close-btn {
+
+    border: none;
+
+    background: transparent;
+
+    cursor: pointer;
+
+    font-size: 18px;
+}

@@ -115,19 +115,21 @@ export class LeafletMap implements AfterViewInit {
 
   this.map.on('click', (event: L.LeafletMouseEvent) => {
 
-    const selectedAsset = this.assetSelectionService.selectedAsset();
+   
 
-    if (selectedAsset) {
+const selectedAsset = this.assetSelectionService.selectedAsset();
 
-      this.placeAsset(
-    selectedAsset,
-    event.latlng.lat,
-    event.latlng.lng
-);
+if (this.assetSelectionService.placing() && selectedAsset) {
 
-return;
+    this.placeAsset(
+        selectedAsset,
+        event.latlng.lat,
+        event.latlng.lng
+    );
 
-    }
+    return;
+
+}
 
     // Existing tool-based placement
     switch (this.simulationService.currentTool()) {
@@ -179,7 +181,7 @@ return;
     this.entityService.addEntity(entity);
 
     console.log("Placed:", entity);
-
+ this.simulationService.selectEntity(entity);
 }
 
   private redrawEntities(): void {

@@ -142,6 +142,14 @@ hideProperties(): void {
     this.selectedBrowserAsset = asset;
 
 }
+
+cancelPlacement(): void {
+
+    this.selectedBrowserAsset = null;
+
+    this.assetSelectionService.clear();
+
+}
 closePreview(): void {
 
     this.selectedBrowserAsset = null;
@@ -155,6 +163,8 @@ placeSelectedAsset(): void {
     }
 
     this.assetSelectionService.select(this.selectedBrowserAsset);
+
+    console.log("Placement Mode Started");
 
 }
 

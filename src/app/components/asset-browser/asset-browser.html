@@ -1,5 +1,24 @@
 <div class="left-panel">
 
+    @if (assetSelectionService.placing()) {
+
+    <div class="placement-banner">
+
+        <span>
+            Placing:
+            <b>{{ assetSelectionService.selectedAsset()?.name }}</b>
+        </span>
+
+        <button
+            class="close-btn"
+            (click)="cancelPlacement()">
+            ✕
+        </button>
+
+    </div>
+
+    }
+
     <div class="browser-panel">
 
         @for (category of groupedCategories(); track category.id) {
@@ -18,7 +37,8 @@
 
                     <div style="margin-left:20px">
 
-                        <b (click)="toggleType(type.entityType)" style="cursor:pointer">
+                        <b (click)="toggleType(type.entityType)"
+                           style="cursor:pointer">
 
                             {{ expandedType === type.entityType ? '▼' : '▶' }}
 
@@ -32,7 +52,8 @@
 
                                 <div style="margin-left:20px">
 
-                                    <i (click)="toggleRole(role.role)" style="cursor:pointer">
+                                    <i (click)="toggleRole(role.role)"
+                                       style="cursor:pointer">
 
                                         {{ expandedRole === role.role ? '▼' : '▶' }}
 
@@ -77,94 +98,92 @@
 
     </div>
 
-    
+    @if (selectedBrowserAsset) {
 
+    <div class="asset-preview">
 
+        <div class="preview-header">
 
-@if (selectedBrowserAsset) {
+            <h3>Asset Preview</h3>
 
-<div class="asset-preview">
-
-    <div class="preview-header">
-
-        <h3>Asset Preview</h3>
-
-        <button class="close-btn"
+            <button
+                class="close-btn"
                 (click)="closePreview()">
 
-            ✕
+                ✕
+
+            </button>
+
+        </div>
+
+        <hr>
+
+        <p><b>Name:</b> {{ selectedBrowserAsset.name }}</p>
+
+        <p><b>Type:</b> {{ selectedBrowserAsset.entityType }}</p>
+
+        <p><b>Role:</b> {{ selectedBrowserAsset.role }}</p>
+
+        <hr>
+
+        @for (property of selectedBrowserAsset.properties | keyvalue; track property.key) {
+
+            <p>
+
+                <b>{{ property.key }}</b>
+
+                {{ property.value }}
+
+            </p>
+
+        }
+
+        <button (click)="placeSelectedAsset()">
+
+            Place Asset
 
         </button>
 
     </div>
-
-    <hr>
-
-    <p><b>Name:</b> {{ selectedBrowserAsset.name }}</p>
-
-    <p><b>Type:</b> {{ selectedBrowserAsset.entityType }}</p>
-
-    <p><b>Role:</b> {{ selectedBrowserAsset.role }}</p>
-
-    <hr>
-
-    @for (property of selectedBrowserAsset.properties | keyvalue; track property.key) {
-
-        <p>
-
-            <b>{{ property.key }}</b>
-
-            {{ property.value }}
-
-        </p>
 
     }
 
-    <button (click)="placeSelectedAsset()">
+    @if (simulationService.selectedEntity(); as entity) {
 
-        Place Asset
+    <div class="selected-entity">
 
-    </button>
+        <div class="preview-header">
 
-</div>
+            <h3>Selected Entity</h3>
 
-}
+            <button
+                class="close-btn"
+                (click)="closeSelectedEntity()">
 
-@if (simulationService.selectedEntity(); as entity) {
+                ✕
 
-<div class="selected-entity">
+            </button>
 
-    <div class="preview-header">
+        </div>
 
-        <h3>Selected Entity</h3>
+        <hr>
 
-        <button
-            class="close-btn"
-            (click)="closeSelectedEntity()">
+        <p><b>Name:</b> {{ entity.name }}</p>
 
-            ✕
+        <p><b>Type:</b> {{ entity.type }}</p>
+
+        <p><b>Latitude:</b> {{ entity.position.latitude }}</p>
+
+        <p><b>Longitude:</b> {{ entity.position.longitude }}</p>
+
+        <button (click)="deleteSelectedEntity()">
+
+            Delete Entity
 
         </button>
 
     </div>
 
-    <hr>
+    }
 
-    <p><b>Name:</b> {{ entity.name }}</p>
-
-    <p><b>Type:</b> {{ entity.type }}</p>
-
-    <p><b>Latitude:</b> {{ entity.position.latitude }}</p>
-
-    <p><b>Longitude:</b> {{ entity.position.longitude }}</p>
-
-    <button (click)="deleteSelectedEntity()">
-
-        Delete Entity
-
-    </button>
-
-</div>
-
-}
 </div>
