@@ -36,32 +36,10 @@ implements AfterViewInit, OnDestroy {
   private mapSyncService = inject(MapSyncService);
   private renderService = inject(EntityRenderService);
 
-
+  private syncing = false;
   private assetSelectionService = inject(AssetSelectionService);
   constructor() {
-  effect(() => {
-
-    const state = this.mapSyncService.view();
-
-    if (!this.viewer) {
-        return;
-    }
-
-    if (state.source !== 'leaflet') {
-        return;
-    }
-
-    this.viewer.camera.setView({
-
-        destination: Cesium.Cartesian3.fromDegrees(
-            state.longitude,
-            state.latitude,
-            this.getCameraHeight(state.zoom)
-        )
-
-    });
-
-});
+  
 
    effect(() => {
       this.entityService.entities();
@@ -103,67 +81,98 @@ implements AfterViewInit, OnDestroy {
    
     this.viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
     this.viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000000;
-    
-    this.initializeClickHandler();
-    this.initializeSelectionHandler();
-    // this.initializeCameraSync();
-    this.drawEntities();
+     this.initializeClickHandler();
+this.initializeSelectionHandler();
+
+this.initializeSynchronization();
+this.initializeCameraSync();
+
+this.drawEntities();
 
 }
+   private initializeSynchronization(): void {
 
-  private initializeCameraSync(): void {
+  this.mapSyncService.leafletToCesium$
+    .subscribe(view => {
 
-    this.viewer.camera.changed.addEventListener(() => {
+      if (this.syncing) {
+        return;
+      }
 
-        const center = new Cesium.Cartesian2(
-            this.viewer.canvas.clientWidth / 2,
-            this.viewer.canvas.clientHeight / 2
-        );
+      this.syncing = true;
 
-        const ray = this.viewer.camera.getPickRay(center);
+      this.viewer.camera.setView({
 
-        if (!ray) {
-            return;
-        }
+        destination: Cesium.Cartesian3.fromDegrees(
+          view.longitude,
+          view.latitude,
+          view.height
+        )
 
-        const cartesian = this.viewer.scene.globe.pick(
-            ray,
-            this.viewer.scene
-        );
+      });
 
-        if (!cartesian) {
-            return;
-        }
-
-        const cartographic =
-            Cesium.Cartographic.fromCartesian(cartesian);
-
-        const latitude =
-            Cesium.Math.toDegrees(cartographic.latitude);
-
-        const longitude =
-            Cesium.Math.toDegrees(cartographic.longitude);
-
-        const height =
-            this.viewer.camera.positionCartographic.height;
-
-        const zoom =
-            Math.round(Math.log2(20000000 / Math.max(1, height)));
-
-       this.mapSyncService.update({
-    latitude,
-    longitude,
-    zoom,
-    height,
-    source: 'cesium'
-});
-
-       
+      this.syncing = false;
 
     });
 
 }
+     private initializeCameraSync(): void {
 
+  this.viewer.camera.moveEnd.addEventListener(() => {
+
+    const center = new Cesium.Cartesian2(
+      this.viewer.canvas.clientWidth / 2,
+      this.viewer.canvas.clientHeight / 2
+    );
+
+    const ray = this.viewer.camera.getPickRay(center);
+
+    if (!ray) {
+      return;
+    }
+
+    const cartesian = this.viewer.scene.globe.pick(
+      ray,
+      this.viewer.scene
+    );
+
+    if (!cartesian) {
+      return;
+    }
+
+    const cartographic =
+      Cesium.Cartographic.fromCartesian(cartesian);
+
+    const latitude =
+      Cesium.Math.toDegrees(cartographic.latitude);
+
+    const longitude =
+      Cesium.Math.toDegrees(cartographic.longitude);
+
+    const height =
+      this.viewer.camera.positionCartographic.height;
+
+    const zoom = Math.max(
+      1,
+      Math.round(Math.log2(20000000 / height))
+    );
+
+    if (this.syncing) {
+  return;
+}
+
+this.mapSyncService.cesiumToLeaflet$.next({
+
+  latitude,
+  longitude,
+  zoom,
+  height
+
+});
+
+  });
+
+}
 private getCameraHeight(zoom: number): number {
     const heights: { [key: number]: number } = {
         1: 20000000, 2: 10000000, 3: 5000000, 4: 2500000, 5: 1200000,

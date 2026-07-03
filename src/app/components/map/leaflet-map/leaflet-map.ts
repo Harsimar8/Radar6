@@ -25,8 +25,8 @@ export class LeafletMap implements AfterViewInit {
 
   private map!: L.Map;
   private markers = L.layerGroup();
-
-  private iconCache = new Map<string, L.Icon>();
+   private iconCache = new Map<string, L.Icon>();
+   private syncing = false;
 
  
 
@@ -52,71 +52,71 @@ export class LeafletMap implements AfterViewInit {
     });
 
     // 3. Sync from Cesium (with guard)
-    effect(() => {
-     const state = this.mapSyncService.view();
-
-  if (!this.map) {
-    return;
-  }
-
-  
-
-  if (state.source !== 'cesium') {
-    return;
-  }
-
-  const center = this.map.getCenter();
-
-  const moved =
-    Math.abs(center.lat - state.latitude) > 0.0001 ||
-    Math.abs(center.lng - state.longitude) > 0.0001;
-
-  const zoomChanged =
-    this.map.getZoom() !== state.zoom;
-
-  if (moved || zoomChanged) {
-
-    this.map.setView(
-      [state.latitude, state.longitude],
-      state.zoom,
-      {
-        animate: false
-      }
-    );
-
-  }
-
-});
+    
   }
 
   ngAfterViewInit(): void {
     this.initializeMap();
-    this.initializeTileLayer();
-    this.markers.addTo(this.map);
-    this.initializeClickHandler();
-    this.redrawEntities();
+this.initializeTileLayer();
+this.markers.addTo(this.map);
+
+this.initializeSynchronization();
+
+this.initializeClickHandler();
+this.redrawEntities();
   }
 
   private initializeMap(): void {
     this.map = L.map('leaflet-map').setView([20.5937, 78.9629], 5);
 
     // Only emit to service on user-initiated events
-   this.map.on('moveend zoomend', () => {
+       this.map.on('moveend zoomend', () => {
+
+  if (this.syncing) {
+    return;
+  }
 
   const center = this.map.getCenter();
 
-  this.mapSyncService.update({
-  latitude: center.lat,
-  longitude: center.lng,
-  zoom: this.map.getZoom(),
-  height: 0,
-  source: 'leaflet'
-});
+  this.mapSyncService.leafletToCesium$.next({
 
- 
+    latitude: center.lat,
+
+    longitude: center.lng,
+
+    zoom: this.map.getZoom(),
+
+    height: 20000000 / Math.pow(2, this.map.getZoom())
+
+  });
 
 });
   }
+
+  private initializeSynchronization(): void {
+
+  this.mapSyncService.cesiumToLeaflet$
+    .subscribe(view => {
+
+      if (this.syncing) {
+        return;
+      }
+
+      this.syncing = true;
+
+      this.map.setView(
+        [view.latitude, view.longitude],
+        view.zoom,
+        {
+          animate: false
+        }
+      );
+
+      this.syncing = false;
+
+    });
+
+}
 
   private getLeafletIcon(path: string): L.Icon {
 
