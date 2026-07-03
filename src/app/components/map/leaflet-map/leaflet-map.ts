@@ -70,7 +70,7 @@ this.redrawEntities();
     this.map = L.map('leaflet-map').setView([20.5937, 78.9629], 5);
 
     // Only emit to service on user-initiated events
-       this.map.on('moveend zoomend', () => {
+     this.map.on('moveend zoomend', () => {
 
   if (this.syncing) {
     return;
@@ -78,22 +78,56 @@ this.redrawEntities();
 
   const center = this.map.getCenter();
 
+console.log("---------------------------");
+console.log("Leaflet Zoom :", this.map.getZoom());
+console.log("Leaflet Lat  :", center.lat);
+console.log("Leaflet Lng  :", center.lng);
+console.log("Height Sent  :", 20000000 / Math.pow(2, this.map.getZoom()));
+
+  console.log("Leaflet Zoom:", this.map.getZoom());
+
   this.mapSyncService.leafletToCesium$.next({
 
     latitude: center.lat,
-
     longitude: center.lng,
-
     zoom: this.map.getZoom(),
-
-    height: 20000000 / Math.pow(2, this.map.getZoom())
+     height: this.getCameraHeight(this.map.getZoom())
 
   });
 
 });
   }
 
-  private initializeSynchronization(): void {
+  private getCameraHeight(zoom: number): number {
+
+    const heights: { [key: number]: number } = {
+
+        1: 38000000,
+        2: 22000000,
+        3: 12000000,
+        4: 7000000,
+        5: 4000000,
+        6: 2200000,
+        7: 1200000,
+        8: 600000,
+        9: 300000,
+        10: 150000,
+        11: 80000,
+        12: 40000,
+        13: 20000,
+        14: 10000,
+        15: 5000,
+        16: 2500,
+        17: 1200,
+        18: 600
+
+    };
+
+    return heights[zoom] ?? 38000000;
+
+}
+
+   private initializeSynchronization(): void {
 
   this.mapSyncService.cesiumToLeaflet$
     .subscribe(view => {
@@ -112,7 +146,10 @@ this.redrawEntities();
         }
       );
 
-      this.syncing = false;
+      // Wait until Leaflet has finished moving
+      setTimeout(() => {
+        this.syncing = false;
+      }, 100);
 
     });
 
@@ -251,6 +288,26 @@ if (this.assetSelectionService.placing() && selectedAsset) {
   });
 
   marker.addTo(this.markers);
+
+  const searchRange = entity.properties?.["searchRange"];
+
+if (searchRange) {
+
+    L.circle(
+        [
+            entity.position.latitude,
+            entity.position.longitude
+        ],
+        {
+            radius: searchRange,
+            color: style.color,
+            weight: 2,
+            fillColor: style.color,
+            fillOpacity: 0.15
+        }
+    ).addTo(this.markers);
+
+}
 
 }
 }
