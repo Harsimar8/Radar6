@@ -104,15 +104,32 @@ export class CesiumMapComponent
                 console.log("Cesium received");
                 console.log(view);
 
-                this.viewer.camera.setView({
+                const current = this.viewer.camera.positionCartographic;
 
-                    destination: Cesium.Cartesian3.fromDegrees(
-                        view.longitude,
-                        view.latitude,
-                        view.height
-                    )
+const currentLat = Cesium.Math.toDegrees(current.latitude);
+const currentLng = Cesium.Math.toDegrees(current.longitude);
+const currentHeight = current.height;
 
-                });
+const samePosition =
+    Math.abs(currentLat - view.latitude) < 0.00001 &&
+    Math.abs(currentLng - view.longitude) < 0.00001 &&
+    Math.abs(currentHeight - view.height) < 10;
+
+if (!samePosition) {
+
+    this.viewer.camera.setView({
+
+        destination: Cesium.Cartesian3.fromDegrees(
+            view.longitude,
+            view.latitude,
+            view.height
+        )
+
+    });
+
+}
+
+
 
                 // Wait until camera movement has completely finished
                 setTimeout(() => {
@@ -124,6 +141,46 @@ export class CesiumMapComponent
             });
 
     }
+
+    private getZoomFromHeight(height: number): number {
+
+    const heights = [
+        38000000,
+        22000000,
+        12000000,
+        7000000,
+        4000000,
+        2200000,
+        1200000,
+        600000,
+        300000,
+        150000,
+        80000,
+        40000,
+        20000,
+        10000,
+        5000,
+        2500,
+        1200,
+        600
+    ];
+
+    let zoom = 1;
+    let best = Number.MAX_VALUE;
+
+    heights.forEach((h, index) => {
+
+        const diff = Math.abs(height - h);
+
+        if (diff < best) {
+            best = diff;
+            zoom = index + 1;
+        }
+
+    });
+
+    return zoom;
+}
     private initializeCameraSync(): void {
 
         this.viewer.camera.moveEnd.addEventListener(() => {
@@ -165,10 +222,7 @@ export class CesiumMapComponent
 
 
 
-            const zoom = Math.max(
-                1,
-                Math.round(Math.log2(20000000 / height))
-            );
+            const zoom = this.getZoomFromHeight(height);
 
             console.log("---------------------------");
             console.log("Camera Height :", height);

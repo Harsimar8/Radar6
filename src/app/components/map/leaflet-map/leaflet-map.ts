@@ -138,13 +138,24 @@ console.log("Height Sent  :", 20000000 / Math.pow(2, this.map.getZoom()));
 
       this.syncing = true;
 
-      this.map.setView(
+      const center = this.map.getCenter();
+
+const samePosition =
+    Math.abs(center.lat - view.latitude) < 0.00001 &&
+    Math.abs(center.lng - view.longitude) < 0.00001 &&
+    this.map.getZoom() === view.zoom;
+
+if (!samePosition) {
+
+    this.map.setView(
         [view.latitude, view.longitude],
         view.zoom,
         {
-          animate: false
+            animate: false
         }
-      );
+    );
+
+}
 
       // Wait until Leaflet has finished moving
       setTimeout(() => {
