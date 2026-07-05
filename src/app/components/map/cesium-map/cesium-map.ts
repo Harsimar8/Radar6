@@ -5,7 +5,7 @@ import {
     effect,
     inject
 } from '@angular/core';
-
+import { CesiumEntityRendererService } from '../../../services/cesium-entity-renderer.service';
 import { AssetFactory } from '../../../core/asset-library/factories/asset-factory';
 import * as Cesium from 'cesium';
 import { MapSyncService } from '../../../services/map-sync.service';
@@ -35,7 +35,7 @@ export class CesiumMapComponent
 
     private mapSyncService = inject(MapSyncService);
     private renderService = inject(EntityRenderService);
-
+   private cesiumRenderer = inject(CesiumEntityRendererService);
     private syncing = false;
     private assetSelectionService = inject(AssetSelectionService);
     constructor() {
@@ -82,13 +82,12 @@ export class CesiumMapComponent
         this.viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
         this.viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000000;
         this.initializeClickHandler();
-        this.initializeSelectionHandler();
+this.initializeSelectionHandler();
 
-        this.initializeSynchronization();
-        
+this.initializeSynchronization();
+this.initializeCameraSync();   // <-- ADD THIS
 
-        this.drawEntities();
-
+this.drawEntities();
     }
      private initializeSynchronization(): void {
         if (this.syncing) {
@@ -104,16 +103,17 @@ export class CesiumMapComponent
 
             this.syncing = true;
 
-            this.viewer.camera.setView({
+            this.viewer.camera.flyTo({
 
-                destination: Cesium.Cartesian3.fromDegrees(
-                    camera.longitude,
-                    camera.latitude,
-                    camera.height
-                ),
+    destination: Cesium.Cartesian3.fromDegrees(
+        camera.longitude,
+        camera.latitude,
+        camera.height
+    ),
 
+    duration: 0
 
-            });
+});
 
             setTimeout(() => {
                 this.syncing = false;
@@ -125,7 +125,7 @@ export class CesiumMapComponent
     
 private initializeCameraSync(): void {
 
-    this.viewer.camera.moveEnd.addEventListener(() => {
+    this.viewer.camera.changed.addEventListener(() => {
 
         if (this.syncing) {
             return;
@@ -142,10 +142,11 @@ private initializeCameraSync(): void {
             return;
         }
 
-        const cartesian = this.viewer.scene.globe.pick(
-            ray,
-            this.viewer.scene
-        );
+        const cartesian =
+    this.viewer.camera.pickEllipsoid(
+        center,
+        this.viewer.scene.globe.ellipsoid
+    );
 
         if (!cartesian) {
             return;
@@ -269,6 +270,20 @@ private initializeClickHandler(): void {
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
 } 
+private isGroundEntity(entity: Entity): boolean {
+
+    switch (entity.type) {
+
+        case EntityType.RadarSite:
+        case EntityType.SamBattery:
+        case EntityType.GroundTarget:
+            return true;
+
+        default:
+            return false;
+    }
+
+}
 
 
     private initializeSelectionHandler(): void {
@@ -310,142 +325,16 @@ private initializeClickHandler(): void {
     }
     private drawEntity(entity: Entity): void {
 
-      console.log(entity.name);
-console.log(entity.properties);
-
-        const style = this.renderService.getStyle(entity);
-
-        const position = Cesium.Cartesian3.fromDegrees(
-            entity.position.longitude,
-            entity.position.latitude,
-            entity.position.altitude
-        );
-
-
-
-
-
-        const cesiumEntity: Cesium.Entity.ConstructorOptions = {
-
-            id: entity.id,
-
-            name: entity.name,
-
-            position,
-
-            label: {
-                text: entity.name,
-                pixelOffset: new Cesium.Cartesian2(0, -22),
-                scale: 0.7
-            }
-
-        };
-
-        if (style.icon) {
-
-            cesiumEntity.billboard = {
-
-                image: style.icon,
-
-                width: 32,
-
-                height: 32,
-
-                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-
-                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
-
-            };
-
-        }
-
-        else {
-
-            cesiumEntity.point = {
-
-                pixelSize: 12,
-
-                color: Cesium.Color.fromCssColorString(style.color),
-
-                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
-
-            };
-
-        }
-
-        this.viewer.entities.add(cesiumEntity);
-
-       const searchRange =
-    entity.properties?.["searchRange"] ??
-    Math.sqrt(entity.properties?.["engagementRangeSqr"] ?? 0);
-
-if (searchRange) {
-
-    // Keep the existing polygon ONLY for Radar
-    if (entity.type === EntityType.RadarSite) {
-
-        this.viewer.entities.add({
-
-            position,
-
-            polygon: {
-
-                hierarchy: new Cesium.PolygonHierarchy(
-                    this.createRadarPolygon(
-                        entity.position.latitude,
-                        entity.position.longitude,
-                        searchRange
-                    )
-                ),
-
-                material: Cesium.Color.RED.withAlpha(0.25),
-
-                outline: true,
-
-                outlineColor: Cesium.Color.RED,
-
-                classificationType: Cesium.ClassificationType.TERRAIN
-
-            }
-
-        });
-
-    }
-
-    // Add a blue dome ONLY for SAM Battery
-    else if (entity.type === EntityType.SamBattery) {
-
-        this.viewer.entities.add({
-
-            position,
-
-            ellipsoid: {
-
-                radii: new Cesium.Cartesian3(
-                    searchRange,
-                    searchRange,
-                    searchRange
-                ),
-
-                maximumCone: Cesium.Math.PI_OVER_TWO,
-
-                material: Cesium.Color.BLUE.withAlpha(0.25),
-
-                outline: true,
-
-                outlineColor: Cesium.Color.BLUE
-
-            }
-
-        });
-
-    }
+    this.cesiumRenderer.draw(
+        this.viewer,
+        entity
+    );
 
 }
 
 
 
-    }
+    
     private drawEntities(): void {
 
         const entities = this.entityService.entities();
