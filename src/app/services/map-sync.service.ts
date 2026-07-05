@@ -7,7 +7,7 @@ export interface MapView {
     longitude: number;
 
     height: number;
-
+    zoom: number;
 
     source: 'leaflet' | 'cesium';
 
@@ -24,8 +24,7 @@ export class MapSyncService {
         longitude: 78.9629,
 
         height: 4000000,
-
-       
+        zoom: 5,
 
         source: 'leaflet'
 

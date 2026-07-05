@@ -67,7 +67,12 @@ this.redrawEntities();
   }
 
   private initializeMap(): void {
-    this.map = L.map('leaflet-map').setView([20.5937, 78.9629], 5);
+    const initialView = this.mapSyncService.camera$.value;
+
+    this.map = L.map('leaflet-map').setView(
+      [initialView.latitude, initialView.longitude],
+      initialView.zoom ?? this.getZoomFromHeight(initialView.height)
+    );
 
     // Only emit to service on user-initiated events
      this.map.on('moveend zoomend', () => {
@@ -80,14 +85,15 @@ this.redrawEntities();
 
    
 
+  const zoom = this.map.getZoom();
+
   this.mapSyncService.camera$.next({
 
     latitude: center.lat,
     longitude: center.lng,
 
-    height: this.getCameraHeight(this.map.getZoom()),
-
-    
+    height: this.getCameraHeight(zoom),
+    zoom,
 
     source: 'leaflet'
 
@@ -97,32 +103,8 @@ this.redrawEntities();
   }
 
   private getCameraHeight(zoom: number): number {
-
-    const heights: { [key: number]: number } = {
-
-        1: 38000000,
-        2: 22000000,
-        3: 12000000,
-        4: 7000000,
-        5: 4000000,
-        6: 2200000,
-        7: 1200000,
-        8: 600000,
-        9: 300000,
-        10: 150000,
-        11: 80000,
-        12: 40000,
-        13: 20000,
-        14: 10000,
-        15: 5000,
-        16: 2500,
-        17: 1200,
-        18: 600
-
-    };
-
-    return heights[zoom] ?? 38000000;
-
+    const baseHeight = 4000000;
+    return Math.max(600, baseHeight / Math.pow(2, zoom - 5));
 }
 
   private initializeSynchronization(): void {
@@ -143,7 +125,7 @@ this.redrawEntities();
                     camera.longitude
                 ],
 
-                this.getZoomFromHeight(camera.height),
+                camera.zoom ?? this.getZoomFromHeight(camera.height),
 
                 {
                     animate: false
@@ -160,46 +142,9 @@ this.redrawEntities();
 }
 
 private getZoomFromHeight(height: number): number {
-
-    const heights = [
-        38000000,
-        22000000,
-        12000000,
-        7000000,
-        4000000,
-        2200000,
-        1200000,
-        600000,
-        300000,
-        150000,
-        80000,
-        40000,
-        20000,
-        10000,
-        5000,
-        2500,
-        1200,
-        600
-    ];
-
-    let bestZoom = 1;
-    let smallestDifference = Number.MAX_VALUE;
-
-    heights.forEach((h, index) => {
-
-        const difference = Math.abs(h - height);
-
-        if (difference < smallestDifference) {
-
-            smallestDifference = difference;
-            bestZoom = index + 1;
-
-        }
-
-    });
-
-    return bestZoom;
-
+    const baseHeight = 4000000;
+    const zoom = 5 + Math.log(baseHeight / height) / Math.log(2);
+    return Math.max(1, Math.min(18, Math.round(zoom)));
 }
 
   private getLeafletIcon(path: string): L.Icon {

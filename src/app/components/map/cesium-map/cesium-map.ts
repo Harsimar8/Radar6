@@ -78,6 +78,20 @@ export class CesiumMapComponent
             geocoder: false,
         });
 
+        const initialView = this.mapSyncService.camera$.value;
+
+        this.viewer.camera.setView({
+            destination: Cesium.Cartesian3.fromDegrees(
+                initialView.longitude,
+                initialView.latitude,
+                initialView.height
+            ),
+            orientation: {
+                heading: Cesium.Math.toRadians(0),
+                pitch: Cesium.Math.toRadians(-90),
+                roll: 0
+            }
+        });
 
         this.viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
         this.viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000000;
@@ -103,17 +117,18 @@ this.drawEntities();
 
             this.syncing = true;
 
-            this.viewer.camera.flyTo({
-
-    destination: Cesium.Cartesian3.fromDegrees(
-        camera.longitude,
-        camera.latitude,
-        camera.height
-    ),
-
-    duration: 0
-
-});
+            this.viewer.camera.setView({
+                destination: Cesium.Cartesian3.fromDegrees(
+                    camera.longitude,
+                    camera.latitude,
+                    camera.height
+                ),
+                orientation: {
+                    heading: Cesium.Math.toRadians(0),
+                    pitch: Cesium.Math.toRadians(-90),
+                    roll: 0
+                }
+            });
 
             setTimeout(() => {
                 this.syncing = false;
@@ -155,15 +170,16 @@ private initializeCameraSync(): void {
         const cartographic =
             Cesium.Cartographic.fromCartesian(cartesian);
 
+        const height = this.viewer.camera.positionCartographic.height;
+
         this.mapSyncService.camera$.next({
 
             latitude: Cesium.Math.toDegrees(cartographic.latitude),
 
             longitude: Cesium.Math.toDegrees(cartographic.longitude),
 
-            height: this.viewer.camera.positionCartographic.height,
-
-            
+            height,
+            zoom: this.getZoomFromHeight(height),
 
             source: 'cesium'
 
@@ -345,6 +361,12 @@ private isGroundEntity(entity: Entity): boolean {
 
         }
 
+    }
+
+    private getZoomFromHeight(height: number): number {
+        const baseHeight = 4000000;
+        const zoom = 5 + Math.log(baseHeight / height) / Math.log(1.6);
+        return Math.max(1, Math.min(18, Math.round(zoom)));
     }
 
     ngOnDestroy(): void {
