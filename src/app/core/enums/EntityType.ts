@@ -4,7 +4,7 @@ export enum EntityType {
 
   RadarSite = 'RadarSite',
 
-  SamBattery = 'SAM Battery',
+  SamBattery = 'SAMBattery',
 
   Missile = 'Missile',
 

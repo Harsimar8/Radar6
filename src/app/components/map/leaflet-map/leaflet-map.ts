@@ -78,22 +78,20 @@ this.redrawEntities();
 
   const center = this.map.getCenter();
 
-console.log("---------------------------");
-console.log("Leaflet Zoom :", this.map.getZoom());
-console.log("Leaflet Lat  :", center.lat);
-console.log("Leaflet Lng  :", center.lng);
-console.log("Height Sent  :", 20000000 / Math.pow(2, this.map.getZoom()));
+   
 
-  console.log("Leaflet Zoom:", this.map.getZoom());
-
-  this.mapSyncService.leafletToCesium$.next({
+  this.mapSyncService.camera$.next({
 
     latitude: center.lat,
     longitude: center.lng,
-    zoom: this.map.getZoom(),
-     height: this.getCameraHeight(this.map.getZoom())
 
-  });
+    height: this.getCameraHeight(this.map.getZoom()),
+
+    
+
+    source: 'leaflet'
+
+});
 
 });
   }
@@ -127,42 +125,80 @@ console.log("Height Sent  :", 20000000 / Math.pow(2, this.map.getZoom()));
 
 }
 
-   private initializeSynchronization(): void {
+  private initializeSynchronization(): void {
 
-  this.mapSyncService.cesiumToLeaflet$
-    .subscribe(view => {
+    this.mapSyncService.camera$
+        .subscribe(camera => {
 
-      if (this.syncing) {
-        return;
-      }
+            if (camera.source === 'leaflet') {
+                return;
+            }
 
-      this.syncing = true;
+            this.syncing = true;
 
-      const center = this.map.getCenter();
+            this.map.setView(
 
-const samePosition =
-    Math.abs(center.lat - view.latitude) < 0.00001 &&
-    Math.abs(center.lng - view.longitude) < 0.00001 &&
-    this.map.getZoom() === view.zoom;
+                [
+                    camera.latitude,
+                    camera.longitude
+                ],
 
-if (!samePosition) {
+                this.getZoomFromHeight(camera.height),
 
-    this.map.setView(
-        [view.latitude, view.longitude],
-        view.zoom,
-        {
-            animate: false
-        }
-    );
+                {
+                    animate: false
+                }
+
+            );
+
+            setTimeout(() => {
+    this.syncing = false;
+},50);
+
+        });
 
 }
 
-      // Wait until Leaflet has finished moving
-      setTimeout(() => {
-        this.syncing = false;
-      }, 100);
+private getZoomFromHeight(height: number): number {
+
+    const heights = [
+        38000000,
+        22000000,
+        12000000,
+        7000000,
+        4000000,
+        2200000,
+        1200000,
+        600000,
+        300000,
+        150000,
+        80000,
+        40000,
+        20000,
+        10000,
+        5000,
+        2500,
+        1200,
+        600
+    ];
+
+    let bestZoom = 1;
+    let smallestDifference = Number.MAX_VALUE;
+
+    heights.forEach((h, index) => {
+
+        const difference = Math.abs(h - height);
+
+        if (difference < smallestDifference) {
+
+            smallestDifference = difference;
+            bestZoom = index + 1;
+
+        }
 
     });
+
+    return bestZoom;
 
 }
 
@@ -248,7 +284,7 @@ if (this.assetSelectionService.placing() && selectedAsset) {
   const style = this.renderService.getStyle(entity);
 
   let marker: L.Marker;
-
+  console.log(style);
   // Use icon if available
   if (style.icon) {
 
@@ -300,26 +336,78 @@ if (this.assetSelectionService.placing() && selectedAsset) {
 
   marker.addTo(this.markers);
 
-  const searchRange = entity.properties?.["searchRange"];
+  // ---------------- RADAR ----------------
+if (entity.type === EntityType.RadarSite) {
 
-if (searchRange) {
+    const searchRange = entity.properties?.["searchRange"];
 
-    L.circle(
-        [
-            entity.position.latitude,
-            entity.position.longitude
-        ],
-        {
-            radius: searchRange,
-            color: style.color,
-            weight: 2,
-            fillColor: style.color,
-            fillOpacity: 0.15
+    if (searchRange) {
+
+        L.circle(
+            [
+                entity.position.latitude,
+                entity.position.longitude
+            ],
+            {
+                radius: searchRange,
+                color: 'red',
+                weight: 2,
+                fillColor: 'red',
+                fillOpacity: 0.2
+            }
+        ).addTo(this.markers);
+
+    }
+  }
+
+// ---------------- SAM BATTERY ----------------
+else if (entity.type === EntityType.SamBattery) {
+
+    const searchRange =
+        entity.properties?.["searchRange"] ??
+        Math.sqrt(entity.properties?.["engagementRangeSqr"] ?? 0);
+
+    if (searchRange > 0) {
+
+        // Blue filled engagement area
+        L.circle(
+            [
+                entity.position.latitude,
+                entity.position.longitude
+            ],
+            {
+                radius: searchRange,
+                color: 'blue',
+                weight: 2,
+                fillColor: 'blue',
+                fillOpacity: 0.15
+            }
+        ).addTo(this.markers);
+
+        // Blue concentric rings
+        const rings = 5;
+
+        for (let i = 1; i <= rings; i++) {
+
+            L.circle(
+                [
+                    entity.position.latitude,
+                    entity.position.longitude
+                ],
+                {
+                    radius: (searchRange / rings) * i,
+                    color: 'blue',
+                    weight: 1,
+                    fill: false,
+                    opacity: 0.8
+                }
+            ).addTo(this.markers);
+
         }
-    ).addTo(this.markers);
+
+    }
 
 }
-
 }
 }
   

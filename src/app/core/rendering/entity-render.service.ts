@@ -25,7 +25,7 @@ export class EntityRenderService {
     },
 
     [EntityType.RadarSite]: {
-      icon: 'icons/radar.jpg',
+      icon: 'icons/aircraft.png',
       color: '#d32f2f',
       showLabel: true,
       showRange: true
@@ -50,6 +50,7 @@ export class EntityRenderService {
     },
 
     [EntityType.SamBattery]: {
+      icon: 'icons/sam.png',
       color: '#43a047',
       showLabel: true,
       showRange: true
@@ -119,6 +120,7 @@ export class EntityRenderService {
 
       case EntityType.SamBattery:
         return {
+          icon: 'icons/sam.png', 
           color: '#43a047',
           size: 18,
           showLabel: true,

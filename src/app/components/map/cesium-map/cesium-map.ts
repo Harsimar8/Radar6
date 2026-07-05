@@ -9,7 +9,7 @@ import {
 import { AssetFactory } from '../../../core/asset-library/factories/asset-factory';
 import * as Cesium from 'cesium';
 import { MapSyncService } from '../../../services/map-sync.service';
-
+import { EntityType } from '../../../core/enums/EntityType';
 import { SimulationService } from '../../../services/simulation.service';
 import { EntityService } from '../../../services/entity.service';
 import { AssetSelectionService } from '../../../services/asset-selection.service';
@@ -85,195 +85,105 @@ export class CesiumMapComponent
         this.initializeSelectionHandler();
 
         this.initializeSynchronization();
-        this.initializeCameraSync();
+        
 
         this.drawEntities();
 
     }
-    private initializeSynchronization(): void {
-
-        this.mapSyncService.leafletToCesium$
-            .subscribe(view => {
-
-                if (this.syncing) {
-                    return;
-                }
-
-                this.syncing = true;
-                console.log("---------------------------");
-                console.log("Cesium received");
-                console.log(view);
-
-                const current = this.viewer.camera.positionCartographic;
-
-const currentLat = Cesium.Math.toDegrees(current.latitude);
-const currentLng = Cesium.Math.toDegrees(current.longitude);
-const currentHeight = current.height;
-
-const samePosition =
-    Math.abs(currentLat - view.latitude) < 0.00001 &&
-    Math.abs(currentLng - view.longitude) < 0.00001 &&
-    Math.abs(currentHeight - view.height) < 10;
-
-if (!samePosition) {
-
-    this.viewer.camera.setView({
-
-        destination: Cesium.Cartesian3.fromDegrees(
-            view.longitude,
-            view.latitude,
-            view.height
-        )
-
-    });
-
+     private initializeSynchronization(): void {
+        if (this.syncing) {
+    return;
 }
 
+    this.mapSyncService.camera$
+        .subscribe(camera => {
 
+            if (camera.source === 'cesium') {
+                return;
+            }
 
-                // Wait until camera movement has completely finished
-                setTimeout(() => {
+            this.syncing = true;
 
-                    this.syncing = false;
+            this.viewer.camera.setView({
 
-                }, 300);
+                destination: Cesium.Cartesian3.fromDegrees(
+                    camera.longitude,
+                    camera.latitude,
+                    camera.height
+                ),
+
 
             });
 
-    }
-
-    private getZoomFromHeight(height: number): number {
-
-    const heights = [
-        38000000,
-        22000000,
-        12000000,
-        7000000,
-        4000000,
-        2200000,
-        1200000,
-        600000,
-        300000,
-        150000,
-        80000,
-        40000,
-        20000,
-        10000,
-        5000,
-        2500,
-        1200,
-        600
-    ];
-
-    let zoom = 1;
-    let best = Number.MAX_VALUE;
-
-    heights.forEach((h, index) => {
-
-        const diff = Math.abs(height - h);
-
-        if (diff < best) {
-            best = diff;
-            zoom = index + 1;
-        }
-
-    });
-
-    return zoom;
-}
-    private initializeCameraSync(): void {
-
-        this.viewer.camera.moveEnd.addEventListener(() => {
-
-            if (this.syncing) {
-                return;
-            }
-            const center = new Cesium.Cartesian2(
-                this.viewer.canvas.clientWidth / 2,
-                this.viewer.canvas.clientHeight / 2
-            );
-
-            const ray = this.viewer.camera.getPickRay(center);
-
-            if (!ray) {
-                return;
-            }
-
-            const cartesian = this.viewer.scene.globe.pick(
-                ray,
-                this.viewer.scene
-            );
-
-            if (!cartesian) {
-                return;
-            }
-
-            const cartographic =
-                Cesium.Cartographic.fromCartesian(cartesian);
-
-            const latitude =
-                Cesium.Math.toDegrees(cartographic.latitude);
-
-            const longitude =
-                Cesium.Math.toDegrees(cartographic.longitude);
-
-            const height =
-                this.viewer.camera.positionCartographic.height;
-
-
-
-            const zoom = this.getZoomFromHeight(height);
-
-            console.log("---------------------------");
-            console.log("Camera Height :", height);
-            console.log("Computed Zoom :", zoom);
-            console.log("Latitude      :", latitude);
-            console.log("Longitude     :", longitude);
-            if (this.syncing) {
-                return;
-            }
-            console.log("Broadcasting to Leaflet");
-            this.mapSyncService.cesiumToLeaflet$.next({
-
-                latitude,
-                longitude,
-                zoom,
-                height
-
-            });
+            setTimeout(() => {
+                this.syncing = false;
+            }, 100);
 
         });
 
+}
+    
+private initializeCameraSync(): void {
+
+    this.viewer.camera.moveEnd.addEventListener(() => {
+
+        if (this.syncing) {
+            return;
+        }
+
+        const center = new Cesium.Cartesian2(
+            this.viewer.canvas.clientWidth / 2,
+            this.viewer.canvas.clientHeight / 2
+        );
+
+        const ray = this.viewer.camera.getPickRay(center);
+
+        if (!ray) {
+            return;
+        }
+
+        const cartesian = this.viewer.scene.globe.pick(
+            ray,
+            this.viewer.scene
+        );
+
+        if (!cartesian) {
+            return;
+        }
+
+        const cartographic =
+            Cesium.Cartographic.fromCartesian(cartesian);
+
+        this.mapSyncService.camera$.next({
+
+            latitude: Cesium.Math.toDegrees(cartographic.latitude),
+
+            longitude: Cesium.Math.toDegrees(cartographic.longitude),
+
+            height: this.viewer.camera.positionCartographic.height,
+
+            
+
+            source: 'cesium'
+
+        });
+
+    });
+
+}
+    private placeAsset(asset: any, lat: number, lng: number): void {
+
+        const entity = AssetFactory.create(
+            asset,
+            lat,
+            lng
+        );
+
+        this.entityService.addEntity(entity);
+
+        console.log("Placed:", entity);
+
     }
-    private getCameraHeight(zoom: number): number {
-
-        const heights: { [key: number]: number } = {
-
-            1: 38000000,
-            2: 22000000,
-            3: 12000000,
-            4: 7000000,
-            5: 4000000,
-            6: 2200000,
-            7: 1200000,
-            8: 600000,
-            9: 300000,
-            10: 150000,
-            11: 80000,
-            12: 40000,
-            13: 20000,
-            14: 10000,
-            15: 5000,
-            16: 2500,
-            17: 1200,
-            18: 600
-
-        };
-
-        return heights[zoom] ?? 38000000;
-    }
-
-
     private createRadarPolygon(
     latitude: number,
     longitude: number,
@@ -301,81 +211,64 @@ if (!samePosition) {
                 latitude + dLat
             )
         );
-
     }
 
     return positions;
 }
-    private initializeClickHandler(): void {
 
-        const handler = new Cesium.ScreenSpaceEventHandler(
-            this.viewer.scene.canvas
-        );
+private initializeClickHandler(): void {
 
-        handler.setInputAction((click: any) => {
+    const handler = new Cesium.ScreenSpaceEventHandler(
+        this.viewer.scene.canvas
+    );
 
-            const picked = this.viewer.scene.pick(click.position);
+    handler.setInputAction((click: any) => {
 
-            if (Cesium.defined(picked)) {
-                return;
-            }
+        const picked = this.viewer.scene.pick(click.position);
 
-            const ray = this.viewer.camera.getPickRay(click.position);
+        if (Cesium.defined(picked)) {
+            return;
+        }
 
-            if (!ray) {
-                return;
-            }
+        const ray = this.viewer.camera.getPickRay(click.position);
 
-            const cartesian = this.viewer.scene.globe.pick(
-                ray,
-                this.viewer.scene
+        if (!ray) {
+            return;
+        }
+
+        const cartesian =
+            this.viewer.scene.globe.pick(ray, this.viewer.scene);
+
+        if (!cartesian) {
+            return;
+        }
+
+        const cartographic =
+            Cesium.Cartographic.fromCartesian(cartesian);
+
+        const latitude =
+            Cesium.Math.toDegrees(cartographic.latitude);
+
+        const longitude =
+            Cesium.Math.toDegrees(cartographic.longitude);
+
+        const asset =
+            this.assetSelectionService.selectedAsset();
+
+        if (asset && this.assetSelectionService.placing()) {
+
+            this.placeAsset(
+                asset,
+                latitude,
+                longitude
             );
 
-            if (!cartesian) {
-                return;
-            }
+            this.assetSelectionService.clear();
+        }
 
-            const cartographic =
-                Cesium.Cartographic.fromCartesian(cartesian);
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-            const latitude =
-                Cesium.Math.toDegrees(cartographic.latitude);
-
-            const longitude =
-                Cesium.Math.toDegrees(cartographic.longitude);
-
-            const asset =
-                this.assetSelectionService.selectedAsset();
-
-            if (asset && this.assetSelectionService.placing()) {
-
-                this.placeAsset(
-                    asset,
-                    latitude,
-                    longitude
-                );
-
-                this.assetSelectionService.clear();
-            }
-
-        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-    }
-
-    private placeAsset(asset: any, lat: number, lng: number): void {
-
-        const entity = AssetFactory.create(
-            asset,
-            lat,
-            lng
-        );
-
-        this.entityService.addEntity(entity);
-
-        console.log("Placed:", entity);
-
-    }
-
+} 
 
 
     private initializeSelectionHandler(): void {
@@ -417,7 +310,8 @@ if (!samePosition) {
     }
     private drawEntity(entity: Entity): void {
 
-
+      console.log(entity.name);
+console.log(entity.properties);
 
         const style = this.renderService.getStyle(entity);
 
@@ -481,36 +375,73 @@ if (!samePosition) {
 
         this.viewer.entities.add(cesiumEntity);
 
-        const searchRange = entity.properties?.["searchRange"];
+       const searchRange =
+    entity.properties?.["searchRange"] ??
+    Math.sqrt(entity.properties?.["engagementRangeSqr"] ?? 0);
 
-        if (searchRange) {
+if (searchRange) {
 
-            this.viewer.entities.add({
+    // Keep the existing polygon ONLY for Radar
+    if (entity.type === EntityType.RadarSite) {
 
-                position,
+        this.viewer.entities.add({
 
-                polygon: {
+            position,
 
-    hierarchy: new Cesium.PolygonHierarchy(
-        this.createRadarPolygon(
-            entity.position.latitude,
-            entity.position.longitude,
-            searchRange
-        )
-    ),
+            polygon: {
 
-    material: Cesium.Color.RED.withAlpha(0.25),
+                hierarchy: new Cesium.PolygonHierarchy(
+                    this.createRadarPolygon(
+                        entity.position.latitude,
+                        entity.position.longitude,
+                        searchRange
+                    )
+                ),
 
-    outline: true,
+                material: Cesium.Color.RED.withAlpha(0.25),
 
-    outlineColor: Cesium.Color.RED,
+                outline: true,
 
-    classificationType: Cesium.ClassificationType.TERRAIN
+                outlineColor: Cesium.Color.RED,
+
+                classificationType: Cesium.ClassificationType.TERRAIN
+
+            }
+
+        });
+
+    }
+
+    // Add a blue dome ONLY for SAM Battery
+    else if (entity.type === EntityType.SamBattery) {
+
+        this.viewer.entities.add({
+
+            position,
+
+            ellipsoid: {
+
+                radii: new Cesium.Cartesian3(
+                    searchRange,
+                    searchRange,
+                    searchRange
+                ),
+
+                maximumCone: Cesium.Math.PI_OVER_TWO,
+
+                material: Cesium.Color.BLUE.withAlpha(0.25),
+
+                outline: true,
+
+                outlineColor: Cesium.Color.BLUE
+
+            }
+
+        });
+
+    }
 
 }
-            });
-
-        }
 
 
 

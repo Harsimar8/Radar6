@@ -1,22 +1,34 @@
 import { Injectable } from '@angular/core';
-import { Subject } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 
 export interface MapView {
 
-  latitude: number;
-  longitude: number;
-  zoom: number;
-  height: number;
+    latitude: number;
+    longitude: number;
+
+    height: number;
+
+
+    source: 'leaflet' | 'cesium';
 
 }
 
 @Injectable({
-  providedIn: 'root'
+    providedIn: 'root'
 })
 export class MapSyncService {
 
-  leafletToCesium$ = new Subject<MapView>();
+    readonly camera$ = new BehaviorSubject<MapView>({
 
-  cesiumToLeaflet$ = new Subject<MapView>();
+        latitude: 20.5937,
+        longitude: 78.9629,
+
+        height: 4000000,
+
+       
+
+        source: 'leaflet'
+
+    });
 
 }
