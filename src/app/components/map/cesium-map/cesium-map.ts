@@ -9,7 +9,7 @@ import { CesiumEntityRendererService } from '../../../services/cesium-entity-ren
 import { AssetFactory } from '../../../core/asset-library/factories/asset-factory';
 import * as Cesium from 'cesium';
 import { MapSyncService, MapView } from '../../../services/map-sync.service';
-import { EntityType } from '../../../core/enums/EntityType';
+import { FilterService } from '../../../services/filter.service';
 import { SimulationService } from '../../../services/simulation.service';
 import { EntityService } from '../../../services/entity.service';
 import { AssetSelectionService } from '../../../services/asset-selection.service';
@@ -30,10 +30,10 @@ export class CesiumMapComponent implements AfterViewInit, OnDestroy {
     private entityService = inject(EntityService);
     private simulationService = inject(SimulationService);
     private mapSyncService = inject(MapSyncService);
-    private renderService = inject(EntityRenderService);
+    
     private cesiumRenderer = inject(CesiumEntityRendererService);
     private assetSelectionService = inject(AssetSelectionService);
-
+    private filterService = inject(FilterService);
     private syncing = false;
     private queuedCameraEmit = false;
     private pendingCesiumSync: MapView | null = null;
@@ -46,12 +46,21 @@ export class CesiumMapComponent implements AfterViewInit, OnDestroy {
 
     constructor() {
         effect(() => {
-            this.entityService.entities();
-            if (this.viewer) {
-                this.viewer.entities.removeAll();
-                this.drawEntities();
-            }
-        });
+
+    this.entityService.entities();
+
+    this.filterService.filters();
+    this.filterService.teamFilters();
+
+    if (this.viewer) {
+
+        this.viewer.entities.removeAll();
+
+        this.drawEntities();
+
+    }
+
+});
 
         // Resize handler
         effect(() => {
@@ -347,9 +356,24 @@ export class CesiumMapComponent implements AfterViewInit, OnDestroy {
     }
 
     private drawEntities(): void {
-        const entities = this.entityService.entities();
-        for (const entity of entities) this.drawEntity(entity);
+
+    const entities = this.entityService.entities();
+
+    for (const entity of entities) {
+
+        if (!this.filterService.isVisible(entity.type)) {
+            continue;
+        }
+
+        if (!this.filterService.isTeamVisible(entity.team)) {
+    continue;
+}
+
+        this.drawEntity(entity);
+
     }
+
+}
 
     ngOnDestroy(): void {
         if (this.hoverHandler) {

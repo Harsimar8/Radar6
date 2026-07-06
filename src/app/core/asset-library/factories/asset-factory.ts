@@ -29,7 +29,7 @@ export class AssetFactory {
                 asset.properties["altitude"] ?? 0
             ),
 
-            Team.Friendly,
+            asset.team ?? Team.Blue,
 
             { ...asset.properties }
 

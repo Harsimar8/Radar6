@@ -1,9 +1,9 @@
 export enum Team {
 
-  Friendly,
+    Blue = 'Blue',
 
-  Enemy,
+    Red = 'Red',
 
-  Neutral
+    Neutral = 'Neutral'
 
 }

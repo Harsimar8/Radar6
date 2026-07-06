@@ -1,3 +1,5 @@
+import { Team } from '../../enums/Team';
+
 export interface Asset {
 
     id: string;
@@ -7,6 +9,8 @@ export interface Asset {
     entityType: string;
 
     role: string;
+
+    team?: Team;
 
     properties: Record<string, any>;
 

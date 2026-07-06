@@ -18,6 +18,40 @@
     <button (click)="removeJson()">
     Remove JSON
 </button>
+
+ <!-- Filters Button -->
+    <div class="filter-container">
+
+        <button (click)="toggleFilters()">
+            Filters ▼
+        </button>
+
+        @if (showFilters) {
+
+            <div class="filter-dropdown">
+
+                @for (type of entityTypes; track type) {
+                   <div class="filter-item">
+                    <label>
+
+                        <input
+                            type="checkbox"
+                            [checked]="filterService.isVisible(type)"
+                            (change)="toggleEntityType(type, $event)">
+
+                        {{ type }}
+
+                    </label>
+                   </div>
+
+                }
+
+            </div>
+
+        }
+
+    </div>
+
     <span class="spacer"></span>
 
      <button (click)="simulationService.showSplit()">

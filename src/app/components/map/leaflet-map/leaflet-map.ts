@@ -13,6 +13,7 @@ import { EntityService } from '../../../services/entity.service';
 import { AssetFactory } from '../../../core/asset-library/factories/asset-factory';
 import { Entity } from '../../../core/models/Entity';
 import { EntityType } from '../../../core/enums/EntityType';
+import { FilterService } from '../../../services/filter.service';
 
 @Component({
   selector: 'app-leaflet-map',
@@ -38,13 +39,24 @@ export class LeafletMap implements AfterViewInit {
     private entityService: EntityService,
     private mapSyncService: MapSyncService,
     private assetSelectionService: AssetSelectionService,
-    private renderService: EntityRenderService
+    private renderService: EntityRenderService,
+    private filterService: FilterService
 ) {
     // 1. React to entity changes
     effect(() => {
-      this.entityService.entities();
-      if (this.map) this.redrawEntities();
-    });
+
+    this.entityService.entities();
+
+    this.filterService.filters();
+    this.filterService.teamFilters();
+
+    if (this.map) {
+
+        this.redrawEntities();
+
+    }
+
+});
 
     // 2. Handle panel resize
     effect(() => {
@@ -246,11 +258,24 @@ if (this.assetSelectionService.placing() && selectedAsset) {
 }
 
   private redrawEntities(): void {
+
     this.markers.clearLayers();
+
     for (const entity of this.entityService.entities()) {
-      this.drawEntity(entity);
+
+        if (!this.filterService.isVisible(entity.type)) {
+            continue;
+        }
+
+         if (!this.filterService.isTeamVisible(entity.team)) {
+        continue;
     }
-  }
+
+        this.drawEntity(entity);
+
+    }
+
+}
 
   private drawEntity(entity: Entity): void {
 

@@ -4,6 +4,9 @@ import { SimulationService } from '../../services/simulation.service';
 import { AssetLibraryService } from '../../core/asset-library/services/asset-library.service';
 import { EditorTool } from '../../core/enums/EditorTool';
 import { ViewMode } from '../../core/enums/ViewMode';
+import { FilterService } from '../../services/filter.service';
+import { EntityType } from '../../core/enums/EntityType';
+import { Team } from '../../core/enums/Team';
 
 @Component({
   selector: 'app-toolbar',
@@ -19,7 +22,8 @@ export class Toolbar {
 
   constructor(
   public simulationService: SimulationService,
-  public assetLibraryService: AssetLibraryService
+  public assetLibraryService: AssetLibraryService,
+  public filterService: FilterService
 ) {
 
   const saved = localStorage.getItem('assetLibrary');
@@ -36,6 +40,10 @@ export class Toolbar {
   categories = computed(() =>
     this.assetLibraryService.library()?.categories ?? []
 );
+showFilters = false;
+
+entityTypes = Object.values(EntityType);
+teams = Object.values(Team);
 
   onFileSelected(event: Event): void {
 
@@ -82,4 +90,32 @@ export class Toolbar {
     this.assetLibraryService.setLibrary(null as any);
 
   }
+
+  toggleFilters(): void {
+
+  this.showFilters = !this.showFilters;
+
+}
+
+toggleEntityType(type: EntityType, event: Event): void {
+
+  const checked = (event.target as HTMLInputElement).checked;
+
+  this.filterService.setVisible(type, checked);
+
+}
+
+toggleTeam(team: Team): void {
+
+    const visible = this.filterService.isTeamVisible(team);
+
+    this.filterService.setTeamVisible(team, !visible);
+
+}
+
+isTeamActive(team: Team): boolean {
+
+    return this.filterService.isTeamVisible(team);
+
+}
 }
