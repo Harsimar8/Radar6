@@ -13,6 +13,7 @@ import { EntityService } from '../../../services/entity.service';
 import { AssetFactory } from '../../../core/asset-library/factories/asset-factory';
 import { Entity } from '../../../core/models/Entity';
 import { EntityType } from '../../../core/enums/EntityType';
+import { Team } from '../../../core/enums/Team';
 import { FilterService } from '../../../services/filter.service';
 
 @Component({
@@ -26,14 +27,14 @@ export class LeafletMap implements AfterViewInit {
 
   private map!: L.Map;
   private markers = L.layerGroup();
-   private iconCache = new Map<string, L.Icon>();
-   private syncing = false;
-   private pendingCameraSync: MapView | null = null;
-   private queuedCameraSync: MapView | null = null;
-   private leafletSyncFrame: number | null = null;
+  private iconCache = new Map<string, L.Icon>();
+  private syncing = false;
+  private pendingCameraSync: MapView | null = null;
+  private queuedCameraSync: MapView | null = null;
+  private leafletSyncFrame: number | null = null;
+  private pendingLeafletEmitFrame: number | null = null;
 
  
-
   constructor(
     public simulationService: SimulationService,
     private entityService: EntityService,
@@ -49,6 +50,7 @@ export class LeafletMap implements AfterViewInit {
 
     this.filterService.filters();
     this.filterService.teamFilters();
+    this.filterService.teamHighlights();
 
     if (this.map) {
 
@@ -93,92 +95,74 @@ this.redrawEntities();
     );
 
     // Only emit to service on user-initiated events
-     this.map.on('moveend zoomend', () => {
-
-  if (this.syncing) {
-    return;
-  }
-
-  const center = this.map.getCenter();
-
-   
-
-  const zoom = this.map.getZoom();
-
-  this.mapSyncService.camera$.next({
-
-    latitude: center.lat,
-    longitude: center.lng,
-
-    height: this.getCameraHeight(zoom),
-    zoom,
-
-    source: 'leaflet'
-
-});
-
-});
-  }
-
-  private getCameraHeight(zoom: number): number {
-    const baseHeight = 4000000;
-    return Math.max(600, baseHeight / Math.pow(2, zoom - 5));
-}
-
-  private initializeSynchronization(): void {
-
-    this.mapSyncService.camera$
-        .subscribe(camera => {
-
-            if (camera.source === 'leaflet') {
-                return;
-            }
-
-            if (this.syncing) {
-                this.queuedCameraSync = camera;
-                return;
-            }
-
-            this.scheduleCameraView(camera);
-
-        });
-
-}
-
-  private scheduleCameraView(camera: MapView): void {
-    this.pendingCameraSync = camera;
-
-    if (this.leafletSyncFrame !== null) {
-      return;
-    }
-
-    this.leafletSyncFrame = window.requestAnimationFrame(() => {
-      this.leafletSyncFrame = null;
-
-      const pendingCamera = this.pendingCameraSync;
-      this.pendingCameraSync = null;
-
-      if (!pendingCamera) {
+     this.map.on('move', () => {
+      if (this.syncing) {
+        return;
+      }
+      if (this.pendingLeafletEmitFrame !== null) {
         return;
       }
 
-      this.syncing = true;
+      this.pendingLeafletEmitFrame = window.requestAnimationFrame(() => {
+        this.pendingLeafletEmitFrame = null;
+        const center = this.map.getCenter();
+        const zoom = this.map.getZoom();
 
-      this.map.setView(
-        [pendingCamera.latitude, pendingCamera.longitude],
-        pendingCamera.zoom ?? this.getZoomFromHeight(pendingCamera.height),
-        {
-          animate: false
-        }
-      );
-
-      this.syncing = false;
-      if (this.queuedCameraSync) {
-        const queued = this.queuedCameraSync;
-        this.queuedCameraSync = null;
-        this.scheduleCameraView(queued);
-      }
+        this.mapSyncService.camera$.next({
+          latitude: center.lat,
+          longitude: center.lng,
+          height: this.getCameraHeight(zoom),
+          zoom,
+          source: 'leaflet'
+        });
+      });
     });
+  }
+
+  private getCameraHeight(zoom: number): number {
+    const tileSize = 256;
+    const earthCircumference = 40075016.686;
+    const center = this.map.getCenter();
+    const latRadians = (center.lat * Math.PI) / 180;
+    const resolution =
+      (earthCircumference * Math.cos(latRadians)) /
+      (tileSize * Math.pow(2, zoom));
+
+    const mapHeight = this.map.getSize().y;
+    const visibleMeters = resolution * mapHeight;
+    const cesiumFov = Math.PI / 3;
+    const height = visibleMeters / (2 * Math.tan(cesiumFov / 2));
+
+    return Math.max(600, height);
+}
+
+  private initializeSynchronization(): void {
+    this.mapSyncService.camera$.subscribe(camera => {
+      if (camera.source === 'leaflet') {
+        return;
+      }
+
+      if (this.syncing) {
+        this.queuedCameraSync = camera;
+        return;
+      }
+
+      this.scheduleCameraView(camera);
+    });
+  }
+
+  private scheduleCameraView(camera: MapView): void {
+    this.syncing = true;
+
+    this.map.setView(
+      [camera.latitude, camera.longitude],
+      camera.zoom ?? this.getZoomFromHeight(camera.height),
+      {
+        animate: false
+      }
+    );
+
+    this.syncing = false;
   }
 
 private getZoomFromHeight(height: number): number {
@@ -186,23 +170,19 @@ private getZoomFromHeight(height: number): number {
     const zoom = 5 + Math.log(baseHeight / height) / Math.log(2);
     return Math.max(1, Math.min(18, zoom));
 }
+private getLeafletIcon(path: string, highlighted = false): L.Icon {
 
-  private getLeafletIcon(path: string): L.Icon {
+    return L.icon({
 
-    if (!this.iconCache.has(path)) {
+        iconUrl: path,
 
-        this.iconCache.set(
-            path,
-            L.icon({
-                iconUrl: path,
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
-            })
-        );
+        iconSize: highlighted ? [42, 42] : [32, 32],
 
-    }
+        iconAnchor: highlighted ? [21, 21] : [16, 16],
 
-    return this.iconCache.get(path)!;
+        className: highlighted ? 'team-highlight' : ''
+
+    });
 
 }
 
@@ -267,9 +247,9 @@ if (this.assetSelectionService.placing() && selectedAsset) {
             continue;
         }
 
-         if (!this.filterService.isTeamVisible(entity.team)) {
-        continue;
-    }
+        if (!this.filterService.isTeamVisible(entity.team)) {
+            continue;
+        }
 
         this.drawEntity(entity);
 
@@ -277,148 +257,123 @@ if (this.assetSelectionService.placing() && selectedAsset) {
 
 }
 
-  private drawEntity(entity: Entity): void {
-
-  const style = this.renderService.getStyle(entity);
-
-  let marker: L.Marker;
-  console.log(style);
-  // Use icon if available
-  if (style.icon) {
-
-    marker = L.marker(
-      [entity.position.latitude, entity.position.longitude],
-      {
-        icon: this.getLeafletIcon(style.icon)
-      }
-    );
-
-  }
-
-  // Otherwise use a colored dot
-  else {
-
-    marker = L.marker(
-      [entity.position.latitude, entity.position.longitude],
-      {
-        icon: L.divIcon({
-          html: `
-            <div style="
-              width:14px;
-              height:14px;
-              border-radius:50%;
-              background:${style.color};
-              border:2px solid white;
-              box-shadow:0 0 5px rgba(0,0,0,0.5);
-            "></div>
-          `,
-          className: '',
-          iconSize: [18, 18],
-          iconAnchor: [9, 9]
-        })
-      }
-    );
-
-  }
-
-  if (style.showLabel) {
-    const tooltipLines = [
-      `Name: ${entity.name}`,
-      `Lat: ${entity.position.latitude.toFixed(6)}`,
-      `Lng: ${entity.position.longitude.toFixed(6)}`
-    ];
-
-    if (entity.properties) {
-      for (const [key, value] of Object.entries(entity.properties)) {
-        tooltipLines.push(`${key}: ${value}`);
-      }
+    private isAnyTeamHighlighted(): boolean {
+        return Object.values(Team).some(team => this.filterService.isTeamHighlighted(team));
     }
 
-    marker.bindTooltip(tooltipLines.join('<br/>'), {
-      permanent: false,
-      direction: 'top',
-      className: 'entity-tooltip'
-    });
-  }
-
-  marker.on('click', () => {
-    this.simulationService.selectEntity(entity);
-  });
-
-  marker.addTo(this.markers);
-
-  // ---------------- RADAR ----------------
-if (entity.type === EntityType.RadarSite) {
-
-    const searchRange = entity.properties?.["searchRange"];
-
-    if (searchRange) {
-
-        L.circle(
-            [
-                entity.position.latitude,
-                entity.position.longitude
-            ],
-            {
-                radius: searchRange,
-                color: 'red',
-                weight: 2,
-                fillColor: 'red',
-                fillOpacity: 0.2
-            }
-        ).addTo(this.markers);
-
+    private getEntityHighlight(entity: Entity): boolean {
+        return this.filterService.isTeamHighlighted(entity.team);
     }
-  }
 
-// ---------------- SAM BATTERY ----------------
-else if (entity.type === EntityType.SamBattery) {
+    private drawEntity(entity: Entity): void {
+        const style = this.renderService.getStyle(entity);
+        const highlighted = this.getEntityHighlight(entity);
 
-    const searchRange =
-        entity.properties?.["searchRange"] ??
-        Math.sqrt(entity.properties?.["engagementRangeSqr"] ?? 0);
+        let marker: L.Marker;
 
-    if (searchRange > 0) {
-
-        // Blue filled engagement area
-        L.circle(
-            [
-                entity.position.latitude,
-                entity.position.longitude
-            ],
-            {
-                radius: searchRange,
-                color: 'blue',
-                weight: 2,
-                fillColor: 'blue',
-                fillOpacity: 0.15
-            }
-        ).addTo(this.markers);
-
-        // Blue concentric rings
-        const rings = 5;
-
-        for (let i = 1; i <= rings; i++) {
-
-            L.circle(
-                [
-                    entity.position.latitude,
-                    entity.position.longitude
-                ],
+        if (style.icon) {
+            marker = L.marker(
+                [entity.position.latitude, entity.position.longitude],
                 {
-                    radius: (searchRange / rings) * i,
-                    color: 'blue',
-                    weight: 1,
-                    fill: false,
-                    opacity: 0.8
+                    icon: this.getLeafletIcon(style.icon, highlighted)
                 }
-            ).addTo(this.markers);
-
+            );
+        } else {
+            marker = L.marker(
+                [entity.position.latitude, entity.position.longitude],
+                {
+                    icon: L.divIcon({
+                        html: `
+                            <div style="
+                                width:${highlighted ? 18 : 14}px;
+                                height:${highlighted ? 18 : 14}px;
+                                border-radius:50%;
+                                background:${style.color};
+                                border:2px solid white;
+                                box-shadow:0 0 ${highlighted ? 8 : 5}px rgba(0,0,0,0.6);
+                                opacity:1;
+                            "></div>
+                        `,
+                        className: '',
+                        iconSize: [highlighted ? 22 : 18, highlighted ? 22 : 18],
+                        iconAnchor: [highlighted ? 11 : 9, highlighted ? 11 : 9]
+                    })
+                }
+            );
         }
 
-    }
+        if (style.showLabel) {
+            const tooltipLines = [
+                `Name: ${entity.name}`,
+                `Lat: ${entity.position.latitude.toFixed(6)}`,
+                `Lng: ${entity.position.longitude.toFixed(6)}`
+            ];
 
-}
-}
+            if (entity.properties) {
+                for (const [key, value] of Object.entries(entity.properties)) {
+                    tooltipLines.push(`${key}: ${value}`);
+                }
+            }
+
+            marker.bindTooltip(tooltipLines.join('<br/>'), {
+                permanent: false,
+                direction: 'top',
+                className: 'entity-tooltip'
+            });
+        }
+
+        marker.on('click', () => {
+            this.simulationService.selectEntity(entity);
+        });
+
+
+        marker.addTo(this.markers);
+
+        if (entity.type === EntityType.RadarSite) {
+            const searchRange = entity.properties?.['searchRange'];
+            if (searchRange) {
+                L.circle(
+                    [entity.position.latitude, entity.position.longitude],
+                    {
+                        radius: searchRange,
+                        color: 'red',
+                        weight: 2,
+                        fillColor: 'red',
+                        fillOpacity: 0.2
+                    }
+                ).addTo(this.markers);
+            }
+        } else if (entity.type === EntityType.SamBattery) {
+            const searchRange =
+                entity.properties?.['searchRange'] ??
+                Math.sqrt(entity.properties?.['engagementRangeSqr'] ?? 0);
+            if (searchRange > 0) {
+                L.circle(
+                    [entity.position.latitude, entity.position.longitude],
+                    {
+                        radius: searchRange,
+                        color: 'blue',
+                        weight: 2,
+                        fillColor: 'blue',
+                        fillOpacity: 0.15
+                    }
+                ).addTo(this.markers);
+
+                const rings = 5;
+                for (let i = 1; i <= rings; i++) {
+                    L.circle(
+                        [entity.position.latitude, entity.position.longitude],
+                        {
+                            radius: (searchRange / rings) * i,
+                            color: 'blue',
+                            weight: 1,
+                            fill: false,
+                            opacity: 0.8
+                        }
+                    ).addTo(this.markers);
+                }
+            }
+        }
+    }
 }
   

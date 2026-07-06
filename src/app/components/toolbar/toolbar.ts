@@ -43,7 +43,7 @@ export class Toolbar {
 showFilters = false;
 
 entityTypes = Object.values(EntityType);
-teams = Object.values(Team);
+
 
   onFileSelected(event: Event): void {
 
@@ -99,23 +99,16 @@ teams = Object.values(Team);
 
 toggleEntityType(type: EntityType, event: Event): void {
 
-  const checked = (event.target as HTMLInputElement).checked;
+    const checked = (event.target as HTMLInputElement).checked;
 
-  this.filterService.setVisible(type, checked);
-
-}
-
-toggleTeam(team: Team): void {
-
-    const visible = this.filterService.isTeamVisible(team);
-
-    this.filterService.setTeamVisible(team, !visible);
+    this.filterService.setVisible(type, checked);
 
 }
+highlightBlue() {
+    console.log('Blue clicked');
+}
 
-isTeamActive(team: Team): boolean {
-
-    return this.filterService.isTeamVisible(team);
-
+highlightRed() {
+    console.log('Red clicked');
 }
 }

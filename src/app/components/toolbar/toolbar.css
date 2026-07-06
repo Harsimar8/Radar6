@@ -102,3 +102,30 @@ button {
     margin: 2px 0;
 
 }
+
+.team-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 12px;
+}
+
+.team-pill {
+    background: #111827;
+    color: #f9fafb;
+    border: 1px solid #374151;
+    border-radius: 999px;
+    padding: 0 14px;
+    min-width: 84px;
+    transition: background .15s ease, transform .15s ease, border-color .15s ease;
+}
+
+.team-pill.active {
+    background: #2563eb;
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+}
+
+.team-pill:hover {
+    border-color: #60a5fa;
+}

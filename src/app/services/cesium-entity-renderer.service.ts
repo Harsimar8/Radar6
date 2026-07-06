@@ -13,7 +13,8 @@ export class CesiumEntityRendererService {
 
     draw(
         viewer: Cesium.Viewer,
-        entity: Entity
+        entity: Entity,
+        highlighted = false
     ): void {
 
         console.log(entity.name);
@@ -62,7 +63,13 @@ export class CesiumEntityRendererService {
 
     disableDepthTestDistance: Number.POSITIVE_INFINITY
 },
-            properties: new Cesium.PropertyBag(entity.properties ?? {})
+        properties: new Cesium.PropertyBag({
+
+    ...(entity.properties ?? {}),
+
+    team: entity.team
+
+})
 
         };
 
@@ -72,13 +79,15 @@ export class CesiumEntityRendererService {
 
                 image: style.icon,
 
-                width: 36,
+                width: highlighted ? 48 : 36,
 
-                height: 36,
+                height: highlighted ? 48 : 36,
 
                 verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
 
-                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+
+                color: Cesium.Color.WHITE
 
             };
 
@@ -87,7 +96,7 @@ export class CesiumEntityRendererService {
 
             cesiumEntity.point = {
 
-                pixelSize: 12,
+                pixelSize: highlighted ? 16 : 12,
 
                 color: Cesium.Color.fromCssColorString(style.color),
 

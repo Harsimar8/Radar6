@@ -18,6 +18,13 @@ export class FilterService {
     Object.values(Team).map(team => [team, true])
   )
 );
+
+  readonly teamHighlights = signal(
+    new Map<Team, boolean>(
+      Object.values(Team).map(team => [team, false])
+    )
+  );
+
   isVisible(type: EntityType): boolean {
     return this.filters().get(type) ?? true;
   }
@@ -33,18 +40,26 @@ export class FilterService {
   }
 
   isTeamVisible(team: Team): boolean {
-
     return this.teamFilters().get(team) ?? true;
+  }
 
-}
-
-setTeamVisible(team: Team, visible: boolean): void {
-
+  setTeamVisible(team: Team, visible: boolean): void {
     const updated = new Map(this.teamFilters());
-
     updated.set(team, visible);
-
     this.teamFilters.set(updated);
+  }
 
-}
+  isTeamHighlighted(team: Team): boolean {
+    return this.teamHighlights().get(team) ?? false;
+  }
+
+  setTeamHighlighted(team: Team, highlighted: boolean): void {
+    const updated = new Map(this.teamHighlights());
+    updated.set(team, highlighted);
+    this.teamHighlights.set(updated);
+  }
+
+  toggleTeamHighlighted(team: Team): void {
+    this.setTeamHighlighted(team, !this.isTeamHighlighted(team));
+  }
 }
