@@ -137,9 +137,9 @@ private drawSamCoverage(
         ellipsoid: {
 
             radii: new Cesium.Cartesian3(
-    searchRange * 2,
-    searchRange * 2,
-    searchRange * 2.9
+    searchRange * 0.6,
+    searchRange * 0.6,
+    searchRange * 0.6
 ),
 
             maximumCone: Cesium.Math.PI_OVER_TWO,

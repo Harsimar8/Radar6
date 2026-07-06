@@ -8,7 +8,7 @@ import {
 import { CesiumEntityRendererService } from '../../../services/cesium-entity-renderer.service';
 import { AssetFactory } from '../../../core/asset-library/factories/asset-factory';
 import * as Cesium from 'cesium';
-import { MapSyncService } from '../../../services/map-sync.service';
+import { MapSyncService, MapView } from '../../../services/map-sync.service';
 import { EntityType } from '../../../core/enums/EntityType';
 import { SimulationService } from '../../../services/simulation.service';
 import { EntityService } from '../../../services/entity.service';
@@ -37,6 +37,11 @@ export class CesiumMapComponent
     private renderService = inject(EntityRenderService);
    private cesiumRenderer = inject(CesiumEntityRendererService);
     private syncing = false;
+    private queuedCameraEmit = false;
+    private pendingCesiumSync: MapView | null = null;
+    private pendingCesiumSyncFrame: number | null = null;
+    private pendingCameraEmitFrame: number | null = null;
+    private lastEmittedCamera: MapView | null = null;
     private assetSelectionService = inject(AssetSelectionService);
     constructor() {
 
@@ -104,38 +109,62 @@ this.initializeCameraSync();   // <-- ADD THIS
 this.drawEntities();
     }
      private initializeSynchronization(): void {
-        if (this.syncing) {
-    return;
-}
+        this.mapSyncService.camera$
+            .subscribe(camera => {
 
-    this.mapSyncService.camera$
-        .subscribe(camera => {
-
-            if (camera.source === 'cesium') {
-                return;
-            }
-
-            this.syncing = true;
-
-            this.viewer.camera.setView({
-                destination: Cesium.Cartesian3.fromDegrees(
-                    camera.longitude,
-                    camera.latitude,
-                    camera.height
-                ),
-                orientation: {
-                    heading: Cesium.Math.toRadians(0),
-                    pitch: Cesium.Math.toRadians(-90),
-                    roll: 0
+                if (camera.source === 'cesium') {
+                    return;
                 }
+
+                this.scheduleCesiumSync(camera);
+
             });
 
-            setTimeout(() => {
-                this.syncing = false;
-            }, 100);
+}
 
+private scheduleCesiumSync(camera: MapView): void {
+    this.pendingCesiumSync = camera;
+
+    if (this.pendingCesiumSyncFrame !== null) {
+        return;
+    }
+
+    this.pendingCesiumSyncFrame = window.requestAnimationFrame(() => {
+        this.pendingCesiumSyncFrame = null;
+
+        const pendingCamera = this.pendingCesiumSync;
+        this.pendingCesiumSync = null;
+
+        if (!pendingCamera) {
+            return;
+        }
+
+        this.syncing = true;
+
+        this.viewer.camera.setView({
+            destination: Cesium.Cartesian3.fromDegrees(
+                pendingCamera.longitude,
+                pendingCamera.latitude,
+                pendingCamera.height
+            ),
+            orientation: {
+                heading: Cesium.Math.toRadians(0),
+                pitch: Cesium.Math.toRadians(-90),
+                roll: 0
+            }
         });
 
+        const finishSync = () => {
+            this.syncing = false;
+            this.viewer.camera.moveEnd.removeEventListener(finishSync);
+            if (this.queuedCameraEmit) {
+                this.queuedCameraEmit = false;
+                this.emitCesiumCamera();
+            }
+        };
+
+        this.viewer.camera.moveEnd.addEventListener(finishSync);
+    });
 }
     
 private initializeCameraSync(): void {
@@ -143,50 +172,70 @@ private initializeCameraSync(): void {
     this.viewer.camera.changed.addEventListener(() => {
 
         if (this.syncing) {
+            this.queuedCameraEmit = true;
             return;
         }
 
-        const center = new Cesium.Cartesian2(
-            this.viewer.canvas.clientWidth / 2,
-            this.viewer.canvas.clientHeight / 2
-        );
-
-        const ray = this.viewer.camera.getPickRay(center);
-
-        if (!ray) {
+        if (this.pendingCameraEmitFrame !== null) {
             return;
         }
 
-        const cartesian =
-    this.viewer.camera.pickEllipsoid(
-        center,
-        this.viewer.scene.globe.ellipsoid
-    );
-
-        if (!cartesian) {
-            return;
-        }
-
-        const cartographic =
-            Cesium.Cartographic.fromCartesian(cartesian);
-
-        const height = this.viewer.camera.positionCartographic.height;
-
-        this.mapSyncService.camera$.next({
-
-            latitude: Cesium.Math.toDegrees(cartographic.latitude),
-
-            longitude: Cesium.Math.toDegrees(cartographic.longitude),
-
-            height,
-            zoom: this.getZoomFromHeight(height),
-
-            source: 'cesium'
-
+        this.pendingCameraEmitFrame = window.requestAnimationFrame(() => {
+            this.pendingCameraEmitFrame = null;
+            this.emitCesiumCamera();
         });
 
     });
 
+}
+
+private emitCesiumCamera(): void {
+    const center = new Cesium.Cartesian2(
+        this.viewer.canvas.clientWidth / 2,
+        this.viewer.canvas.clientHeight / 2
+    );
+
+    let cartographic: Cesium.Cartographic | null = null;
+    const cartesian = this.viewer.camera.pickEllipsoid(
+        center,
+        this.viewer.scene.globe.ellipsoid
+    );
+
+    if (cartesian) {
+        cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+    } else {
+        cartographic = this.viewer.camera.positionCartographic;
+    }
+
+    const height = this.viewer.camera.positionCartographic.height;
+
+    const nextCamera: MapView = {
+        latitude: Cesium.Math.toDegrees(cartographic.latitude),
+        longitude: Cesium.Math.toDegrees(cartographic.longitude),
+        height,
+        zoom: this.getZoomFromHeight(height),
+        source: 'cesium'
+    };
+
+    if (this.isSameView(nextCamera, this.lastEmittedCamera)) {
+        return;
+    }
+
+    this.lastEmittedCamera = nextCamera;
+    this.mapSyncService.camera$.next(nextCamera);
+}
+
+private isSameView(a: MapView, b: MapView | null): boolean {
+    if (!b) {
+        return false;
+    }
+
+    const latDiff = Math.abs(a.latitude - b.latitude);
+    const lngDiff = Math.abs(a.longitude - b.longitude);
+    const heightDiff = Math.abs(a.height - b.height);
+    const zoomDiff = Math.abs((a.zoom ?? 0) - (b.zoom ?? 0));
+
+    return latDiff < 0.00005 && lngDiff < 0.00005 && heightDiff < 1 && zoomDiff < 0.01;
 }
     private placeAsset(asset: any, lat: number, lng: number): void {
 
@@ -365,8 +414,8 @@ private isGroundEntity(entity: Entity): boolean {
 
     private getZoomFromHeight(height: number): number {
         const baseHeight = 4000000;
-        const zoom = 5 + Math.log(baseHeight / height) / Math.log(1.6);
-        return Math.max(1, Math.min(18, Math.round(zoom)));
+        const zoom = 5 + Math.log(baseHeight / height) / Math.log(2);
+        return Math.max(1, Math.min(18, zoom));
     }
 
     ngOnDestroy(): void {

@@ -6,7 +6,7 @@ import {
 
 import * as L from 'leaflet';
 import { EntityRenderService } from '../../../core/rendering/entity-render.service';
-import { MapSyncService } from '../../../services/map-sync.service';
+import { MapSyncService, MapView } from '../../../services/map-sync.service';
 import { AssetSelectionService } from '../../../services/asset-selection.service';
 import { SimulationService } from '../../../services/simulation.service';
 import { EntityService } from '../../../services/entity.service';
@@ -27,6 +27,9 @@ export class LeafletMap implements AfterViewInit {
   private markers = L.layerGroup();
    private iconCache = new Map<string, L.Icon>();
    private syncing = false;
+   private pendingCameraSync: MapView | null = null;
+   private queuedCameraSync: MapView | null = null;
+   private leafletSyncFrame: number | null = null;
 
  
 
@@ -69,7 +72,10 @@ this.redrawEntities();
   private initializeMap(): void {
     const initialView = this.mapSyncService.camera$.value;
 
-    this.map = L.map('leaflet-map').setView(
+    this.map = L.map('leaflet-map', {
+      zoomSnap: 0,
+      zoomDelta: 0.25
+    }).setView(
       [initialView.latitude, initialView.longitude],
       initialView.zoom ?? this.getZoomFromHeight(initialView.height)
     );
@@ -116,35 +122,57 @@ this.redrawEntities();
                 return;
             }
 
-            this.syncing = true;
+            if (this.syncing) {
+                this.queuedCameraSync = camera;
+                return;
+            }
 
-            this.map.setView(
-
-                [
-                    camera.latitude,
-                    camera.longitude
-                ],
-
-                camera.zoom ?? this.getZoomFromHeight(camera.height),
-
-                {
-                    animate: false
-                }
-
-            );
-
-            setTimeout(() => {
-    this.syncing = false;
-},50);
+            this.scheduleCameraView(camera);
 
         });
 
 }
 
+  private scheduleCameraView(camera: MapView): void {
+    this.pendingCameraSync = camera;
+
+    if (this.leafletSyncFrame !== null) {
+      return;
+    }
+
+    this.leafletSyncFrame = window.requestAnimationFrame(() => {
+      this.leafletSyncFrame = null;
+
+      const pendingCamera = this.pendingCameraSync;
+      this.pendingCameraSync = null;
+
+      if (!pendingCamera) {
+        return;
+      }
+
+      this.syncing = true;
+
+      this.map.setView(
+        [pendingCamera.latitude, pendingCamera.longitude],
+        pendingCamera.zoom ?? this.getZoomFromHeight(pendingCamera.height),
+        {
+          animate: false
+        }
+      );
+
+      this.syncing = false;
+      if (this.queuedCameraSync) {
+        const queued = this.queuedCameraSync;
+        this.queuedCameraSync = null;
+        this.scheduleCameraView(queued);
+      }
+    });
+  }
+
 private getZoomFromHeight(height: number): number {
     const baseHeight = 4000000;
     const zoom = 5 + Math.log(baseHeight / height) / Math.log(2);
-    return Math.max(1, Math.min(18, Math.round(zoom)));
+    return Math.max(1, Math.min(18, zoom));
 }
 
   private getLeafletIcon(path: string): L.Icon {
