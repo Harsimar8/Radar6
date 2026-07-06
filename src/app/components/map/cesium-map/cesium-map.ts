@@ -38,10 +38,6 @@ export class CesiumMapComponent implements AfterViewInit, OnDestroy {
     private assetSelectionService = inject(AssetSelectionService);
     private filterService = inject(FilterService);
     private syncing = false;
-    private pendingCesiumSync: MapView | null = null;
-    private pendingCesiumSyncFrame: number | null = null;
-    private pendingCameraEmitFrame: number | null = null;
-    private pendingCesiumCameraFrame: number | null = null;
     private lastEmittedCamera: MapView | null = null;
 
     private tooltip: HTMLElement | null = null;
@@ -129,7 +125,7 @@ export class CesiumMapComponent implements AfterViewInit, OnDestroy {
             if (camera.source === 'cesium') {
                 return;
             }
-            this.maybeApplyCesiumSync(camera);
+            this.scheduleCesiumSync(camera);
         });
     }
 
@@ -150,22 +146,6 @@ export class CesiumMapComponent implements AfterViewInit, OnDestroy {
         });
 
         this.syncing = false;
-    }
-
-    private maybeApplyCesiumSync(camera: MapView): void {
-        if (this.syncing) {
-            this.pendingCesiumSync = camera;
-            return;
-        }
-
-        if (this.pendingCesiumSyncFrame !== null) {
-            window.cancelAnimationFrame(this.pendingCesiumSyncFrame);
-        }
-
-        this.pendingCesiumSyncFrame = window.requestAnimationFrame(() => {
-            this.pendingCesiumSyncFrame = null;
-            this.scheduleCesiumSync(camera);
-        });
     }
 
     private highlightTeam(team: Team | string): void {
@@ -201,21 +181,11 @@ entity.billboard.color = new Cesium.ConstantProperty(
     private initializeCameraSync(): void {
         this.viewer.camera.changed.addEventListener(() => {
             if (this.syncing) return;
-            if (this.pendingCesiumCameraFrame !== null) return;
-
-            this.pendingCesiumCameraFrame = window.requestAnimationFrame(() => {
-                this.pendingCesiumCameraFrame = null;
-                this.emitCesiumCamera();
-            });
+            this.emitCesiumCamera();
         });
     }
 
     private emitCesiumCamera(): void {
-        const center = new Cesium.Cartesian2(
-            this.viewer.canvas.clientWidth / 2,
-            this.viewer.canvas.clientHeight / 2
-        );
-
         const cameraPosition = this.viewer.camera.positionCartographic;
         const height = cameraPosition.height;
         const lat = Cesium.Math.toDegrees(cameraPosition.latitude);
