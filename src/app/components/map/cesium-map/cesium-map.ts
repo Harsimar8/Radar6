@@ -23,29 +23,28 @@ import { Entity } from '../../../core/models/Entity';
     styleUrl: './cesium-map.css'
 })
 
-
-export class CesiumMapComponent
-    implements AfterViewInit, OnDestroy {
+export class CesiumMapComponent implements AfterViewInit, OnDestroy {
 
     private viewer!: Cesium.Viewer;
 
     private entityService = inject(EntityService);
-
     private simulationService = inject(SimulationService);
-
     private mapSyncService = inject(MapSyncService);
     private renderService = inject(EntityRenderService);
-   private cesiumRenderer = inject(CesiumEntityRendererService);
+    private cesiumRenderer = inject(CesiumEntityRendererService);
+    private assetSelectionService = inject(AssetSelectionService);
+
     private syncing = false;
     private queuedCameraEmit = false;
     private pendingCesiumSync: MapView | null = null;
     private pendingCesiumSyncFrame: number | null = null;
     private pendingCameraEmitFrame: number | null = null;
     private lastEmittedCamera: MapView | null = null;
-    private assetSelectionService = inject(AssetSelectionService);
+
+    private tooltip: HTMLElement | null = null;
+    private hoverHandler: Cesium.ScreenSpaceEventHandler | null = null;
+
     constructor() {
-
-
         effect(() => {
             this.entityService.entities();
             if (this.viewer) {
@@ -54,7 +53,7 @@ export class CesiumMapComponent
             }
         });
 
-        // 3. Resize handler
+        // Resize handler
         effect(() => {
             this.simulationService.panelMode();
             if (this.viewer) {
@@ -66,10 +65,7 @@ export class CesiumMapComponent
         });
     }
 
-    // <-- constructor ends here
-
     ngAfterViewInit(): void {
-
         Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzY2ZiMTI4MC0yODcxLTRhN2MtYTVmNi01MmFlYThjMzllODIiLCJpZCI6NDQyMjYxLCJzdWIiOiJIYXJzaW1hcjA4IiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6IlVudGl0bGVkIiwiaWF0IjoxNzgyODAxMjQwfQ.FCFiKY8xR6oixiTfcg9AaQLL3Xb4IidcE-9aInSeQ88";
 
         this.viewer = new Cesium.Viewer("cesiumContainer", {
@@ -100,316 +96,118 @@ export class CesiumMapComponent
 
         this.viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
         this.viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000000;
+
+        this.tooltip = document.getElementById('cesiumTooltip');
+
         this.initializeClickHandler();
-this.initializeSelectionHandler();
+        this.initializeSelectionHandler();
+        this.initializeHoverHandler();
 
-this.initializeSynchronization();
-this.initializeCameraSync();   // <-- ADD THIS
+        this.initializeSynchronization();
+        this.initializeCameraSync();
 
-this.drawEntities();
+        this.drawEntities();
     }
-     private initializeSynchronization(): void {
-        this.mapSyncService.camera$
-            .subscribe(camera => {
 
-                if (camera.source === 'cesium') {
-                    return;
+    private initializeSynchronization(): void {
+        this.mapSyncService.camera$.subscribe(camera => {
+            if (camera.source === 'cesium') {
+                return;
+            }
+            this.scheduleCesiumSync(camera);
+        });
+    }
+
+    private scheduleCesiumSync(camera: MapView): void {
+        this.pendingCesiumSync = camera;
+
+        if (this.pendingCesiumSyncFrame !== null) {
+            return;
+        }
+
+        this.pendingCesiumSyncFrame = window.requestAnimationFrame(() => {
+            this.pendingCesiumSyncFrame = null;
+
+            const pendingCamera = this.pendingCesiumSync;
+            this.pendingCesiumSync = null;
+
+            if (!pendingCamera) {
+                return;
+            }
+
+            this.syncing = true;
+
+            this.viewer.camera.setView({
+                destination: Cesium.Cartesian3.fromDegrees(
+                    pendingCamera.longitude,
+                    pendingCamera.latitude,
+                    pendingCamera.height
+                ),
+                orientation: {
+                    heading: Cesium.Math.toRadians(0),
+                    pitch: Cesium.Math.toRadians(-90),
+                    roll: 0
                 }
-
-                this.scheduleCesiumSync(camera);
-
             });
 
-}
+            const finishSync = () => {
+                this.syncing = false;
+                this.viewer.camera.moveEnd.removeEventListener(finishSync);
+                if (this.queuedCameraEmit) {
+                    this.queuedCameraEmit = false;
+                    this.emitCesiumCamera();
+                }
+            };
 
-private scheduleCesiumSync(camera: MapView): void {
-    this.pendingCesiumSync = camera;
-
-    if (this.pendingCesiumSyncFrame !== null) {
-        return;
+            this.viewer.camera.moveEnd.addEventListener(finishSync);
+        });
     }
 
-    this.pendingCesiumSyncFrame = window.requestAnimationFrame(() => {
-        this.pendingCesiumSyncFrame = null;
-
-        const pendingCamera = this.pendingCesiumSync;
-        this.pendingCesiumSync = null;
-
-        if (!pendingCamera) {
-            return;
-        }
-
-        this.syncing = true;
-
-        this.viewer.camera.setView({
-            destination: Cesium.Cartesian3.fromDegrees(
-                pendingCamera.longitude,
-                pendingCamera.latitude,
-                pendingCamera.height
-            ),
-            orientation: {
-                heading: Cesium.Math.toRadians(0),
-                pitch: Cesium.Math.toRadians(-90),
-                roll: 0
-            }
-        });
-
-        const finishSync = () => {
-            this.syncing = false;
-            this.viewer.camera.moveEnd.removeEventListener(finishSync);
-            if (this.queuedCameraEmit) {
-                this.queuedCameraEmit = false;
-                this.emitCesiumCamera();
-            }
-        };
-
-        this.viewer.camera.moveEnd.addEventListener(finishSync);
-    });
-}
-    
-private initializeCameraSync(): void {
-
-    this.viewer.camera.changed.addEventListener(() => {
-
-        if (this.syncing) {
-            this.queuedCameraEmit = true;
-            return;
-        }
-
-        if (this.pendingCameraEmitFrame !== null) {
-            return;
-        }
-
-        this.pendingCameraEmitFrame = window.requestAnimationFrame(() => {
-            this.pendingCameraEmitFrame = null;
+    private initializeCameraSync(): void {
+        this.viewer.camera.moveEnd.addEventListener(() => {
+            if (this.syncing) return;
             this.emitCesiumCamera();
         });
-
-    });
-
-}
-
-private emitCesiumCamera(): void {
-    const center = new Cesium.Cartesian2(
-        this.viewer.canvas.clientWidth / 2,
-        this.viewer.canvas.clientHeight / 2
-    );
-
-    let cartographic: Cesium.Cartographic | null = null;
-    const cartesian = this.viewer.camera.pickEllipsoid(
-        center,
-        this.viewer.scene.globe.ellipsoid
-    );
-
-    if (cartesian) {
-        cartographic = Cesium.Cartographic.fromCartesian(cartesian);
-    } else {
-        cartographic = this.viewer.camera.positionCartographic;
     }
 
-    const height = this.viewer.camera.positionCartographic.height;
-
-    const nextCamera: MapView = {
-        latitude: Cesium.Math.toDegrees(cartographic.latitude),
-        longitude: Cesium.Math.toDegrees(cartographic.longitude),
-        height,
-        zoom: this.getZoomFromHeight(height),
-        source: 'cesium'
-    };
-
-    if (this.isSameView(nextCamera, this.lastEmittedCamera)) {
-        return;
-    }
-
-    this.lastEmittedCamera = nextCamera;
-    this.mapSyncService.camera$.next(nextCamera);
-}
-
-private isSameView(a: MapView, b: MapView | null): boolean {
-    if (!b) {
-        return false;
-    }
-
-    const latDiff = Math.abs(a.latitude - b.latitude);
-    const lngDiff = Math.abs(a.longitude - b.longitude);
-    const heightDiff = Math.abs(a.height - b.height);
-    const zoomDiff = Math.abs((a.zoom ?? 0) - (b.zoom ?? 0));
-
-    return latDiff < 0.00005 && lngDiff < 0.00005 && heightDiff < 1 && zoomDiff < 0.01;
-}
-    private placeAsset(asset: any, lat: number, lng: number): void {
-
-        const entity = AssetFactory.create(
-            asset,
-            lat,
-            lng
+    private emitCesiumCamera(): void {
+        const center = new Cesium.Cartesian2(
+            this.viewer.canvas.clientWidth / 2,
+            this.viewer.canvas.clientHeight / 2
         );
 
-        this.entityService.addEntity(entity);
+        let cartographic: Cesium.Cartographic | null = null;
+        const ray = this.viewer.camera.getPickRay(center);
 
-        console.log("Placed:", entity);
+        if (ray) {
+            const globeCartesian = this.viewer.scene.globe.pick(ray, this.viewer.scene);
+            if (globeCartesian) {
+                cartographic = Cesium.Cartographic.fromCartesian(globeCartesian);
+            }
+        }
 
-    }
-    private createRadarPolygon(
-    latitude: number,
-    longitude: number,
-    radius: number
-): Cesium.Cartesian3[] {
+        if (!cartographic) {
+            cartographic = this.viewer.camera.positionCartographic;
+        }
 
-    const positions: Cesium.Cartesian3[] = [];
+        const height = this.viewer.camera.positionCartographic.height;
 
-    for (let angle = 0; angle <= 360; angle += 2) {
+        const nextCamera: MapView = {
+            latitude: Cesium.Math.toDegrees(cartographic.latitude),
+            longitude: Cesium.Math.toDegrees(cartographic.longitude),
+            height,
+            zoom: this.getZoomFromHeight(height),
+            source: 'cesium'
+        };
 
-        const radians = Cesium.Math.toRadians(angle);
-
-        const dLat =
-            (radius * Math.cos(radians)) / 111320;
-
-        const dLon =
-            (radius * Math.sin(radians)) /
-            (111320 * Math.cos(
-                Cesium.Math.toRadians(latitude)
-            ));
-
-        positions.push(
-            Cesium.Cartesian3.fromDegrees(
-                longitude + dLon,
-                latitude + dLat
-            )
-        );
-    }
-
-    return positions;
-}
-
-private initializeClickHandler(): void {
-
-    const handler = new Cesium.ScreenSpaceEventHandler(
-        this.viewer.scene.canvas
-    );
-
-    handler.setInputAction((click: any) => {
-
-        const picked = this.viewer.scene.pick(click.position);
-
-        if (Cesium.defined(picked)) {
+        if (this.isSameView(nextCamera, this.lastEmittedCamera)) {
+            console.debug('Cesium sync skipped same view', nextCamera);
             return;
         }
 
-        const ray = this.viewer.camera.getPickRay(click.position);
-
-        if (!ray) {
-            return;
-        }
-
-        const cartesian =
-            this.viewer.scene.globe.pick(ray, this.viewer.scene);
-
-        if (!cartesian) {
-            return;
-        }
-
-        const cartographic =
-            Cesium.Cartographic.fromCartesian(cartesian);
-
-        const latitude =
-            Cesium.Math.toDegrees(cartographic.latitude);
-
-        const longitude =
-            Cesium.Math.toDegrees(cartographic.longitude);
-
-        const asset =
-            this.assetSelectionService.selectedAsset();
-
-        if (asset && this.assetSelectionService.placing()) {
-
-            this.placeAsset(
-                asset,
-                latitude,
-                longitude
-            );
-
-            this.assetSelectionService.clear();
-        }
-
-    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-} 
-private isGroundEntity(entity: Entity): boolean {
-
-    switch (entity.type) {
-
-        case EntityType.RadarSite:
-        case EntityType.SamBattery:
-        case EntityType.GroundTarget:
-            return true;
-
-        default:
-            return false;
-    }
-
-}
-
-
-    private initializeSelectionHandler(): void {
-
-        const handler = new Cesium.ScreenSpaceEventHandler(
-            this.viewer.scene.canvas
-        );
-
-        handler.setInputAction((click: any) => {
-
-            const picked = this.viewer.scene.pick(click.position);
-
-            if (!Cesium.defined(picked)) {
-
-                this.simulationService.selectEntity(null);
-
-                return;
-
-            }
-
-            const pickedEntity = picked.id;
-
-            if (!pickedEntity?.id) {
-                return;
-            }
-
-            const entity = this.entityService
-                .entities()
-                .find(e => e.id === pickedEntity.id);
-
-            if (entity) {
-
-                this.simulationService.selectEntity(entity);
-
-            }
-
-        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-    }
-    private drawEntity(entity: Entity): void {
-
-    this.cesiumRenderer.draw(
-        this.viewer,
-        entity
-    );
-
-}
-
-
-
-    
-    private drawEntities(): void {
-
-        const entities = this.entityService.entities();
-
-        for (const entity of entities) {
-
-            this.drawEntity(entity);
-
-        }
-
+        console.debug('Cesium emit camera', nextCamera);
+        this.lastEmittedCamera = nextCamera;
+        this.mapSyncService.camera$.next(nextCamera);
     }
 
     private getZoomFromHeight(height: number): number {
@@ -418,15 +216,149 @@ private isGroundEntity(entity: Entity): boolean {
         return Math.max(1, Math.min(18, zoom));
     }
 
-    ngOnDestroy(): void {
+    private isSameView(a: MapView, b: MapView | null): boolean {
+        if (!b) return false;
+        const latDiff = Math.abs(a.latitude - b.latitude);
+        const lngDiff = Math.abs(a.longitude - b.longitude);
+        const heightDiff = Math.abs(a.height - b.height);
+        const zoomDiff = Math.abs((a.zoom ?? 0) - (b.zoom ?? 0));
+        return latDiff < 0.00005 && lngDiff < 0.00005 && heightDiff < 1 && zoomDiff < 0.01;
+    }
 
+    private initializeClickHandler(): void {
+        const handler = new Cesium.ScreenSpaceEventHandler(this.viewer.scene.canvas);
+
+        handler.setInputAction((click: any) => {
+            const picked = this.viewer.scene.pick(click.position);
+            if (Cesium.defined(picked)) return;
+
+            const ray = this.viewer.camera.getPickRay(click.position);
+            if (!ray) return;
+
+            const cartesian = this.viewer.scene.globe.pick(ray, this.viewer.scene);
+            if (!cartesian) return;
+
+            const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+            const latitude = Cesium.Math.toDegrees(cartographic.latitude);
+            const longitude = Cesium.Math.toDegrees(cartographic.longitude);
+
+            const asset = this.assetSelectionService.selectedAsset();
+            if (asset && this.assetSelectionService.placing()) {
+                this.placeAsset(asset, latitude, longitude);
+                this.assetSelectionService.clear();
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    }
+
+    private initializeSelectionHandler(): void {
+        const handler = new Cesium.ScreenSpaceEventHandler(this.viewer.scene.canvas);
+
+        handler.setInputAction((click: any) => {
+            const picked = this.viewer.scene.pick(click.position);
+            if (!Cesium.defined(picked)) {
+                this.simulationService.selectEntity(null);
+                return;
+            }
+
+            const pickedEntity = picked.id as Cesium.Entity;
+            const entityId = pickedEntity.id?.toString();
+            if (!entityId) return;
+
+            const entity = this.entityService.entities().find(e => e.id === entityId);
+            if (entity) this.simulationService.selectEntity(entity);
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    }
+
+    private initializeHoverHandler(): void {
+        this.hoverHandler = new Cesium.ScreenSpaceEventHandler(this.viewer.scene.canvas);
+
+        this.hoverHandler.setInputAction((movement: any) => {
+            const picked = this.viewer.scene.pick(movement.endPosition);
+            if (!Cesium.defined(picked) || !picked.id) {
+                this.hideTooltip();
+                return;
+            }
+
+            const pickedEntity = picked.id as Cesium.Entity;
+            const entityId = pickedEntity.id?.toString();
+            if (!entityId) {
+                this.hideTooltip();
+                return;
+            }
+
+            const entity = this.entityService.entities().find(e => e.id === entityId);
+            if (!entity) {
+                this.hideTooltip();
+                return;
+            }
+
+            this.showTooltip(entity, movement.endPosition);
+        }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+    }
+
+    private showTooltip(entity: Entity, position: Cesium.Cartesian2): void {
+        if (!this.tooltip) return;
+
+        const rect = this.viewer.container.getBoundingClientRect();
+        const left = rect.left + position.x + 12;
+        const top = rect.top + position.y + 12;
+
+        const lines: string[] = [];
+        lines.push(`<div><strong>${entity.name}</strong></div>`);
+        lines.push(`<div>Lat: ${entity.position.latitude.toFixed(6)}</div>`);
+        lines.push(`<div>Lng: ${entity.position.longitude.toFixed(6)}</div>`);
+
+        if (entity.properties) {
+            for (const [key, value] of Object.entries(entity.properties)) {
+                lines.push(`<div>${key}: ${value}</div>`);
+            }
+        }
+
+        this.tooltip.innerHTML = lines.join('');
+        this.tooltip.style.left = `${left}px`;
+        this.tooltip.style.top = `${top}px`;
+        this.tooltip.classList.remove('hidden');
+    }
+
+    private hideTooltip(): void {
+        if (!this.tooltip) return;
+        this.tooltip.classList.add('hidden');
+    }
+
+    private placeAsset(asset: any, lat: number, lng: number): void {
+        const entity = AssetFactory.create(asset, lat, lng);
+        this.entityService.addEntity(entity);
+        console.log('Placed:', entity);
+    }
+
+    private createRadarPolygon(latitude: number, longitude: number, radius: number): Cesium.Cartesian3[] {
+        const positions: Cesium.Cartesian3[] = [];
+        for (let angle = 0; angle <= 360; angle += 2) {
+            const radians = Cesium.Math.toRadians(angle);
+            const dLat = (radius * Math.cos(radians)) / 111320;
+            const dLon = (radius * Math.sin(radians)) / (111320 * Math.cos(Cesium.Math.toRadians(latitude)));
+            positions.push(Cesium.Cartesian3.fromDegrees(longitude + dLon, latitude + dLat));
+        }
+        return positions;
+    }
+
+    private drawEntity(entity: Entity): void {
+        this.cesiumRenderer.draw(this.viewer, entity);
+    }
+
+    private drawEntities(): void {
+        const entities = this.entityService.entities();
+        for (const entity of entities) this.drawEntity(entity);
+    }
+
+    ngOnDestroy(): void {
+        if (this.hoverHandler) {
+            this.hoverHandler.destroy();
+            this.hoverHandler = null;
+        }
         if (this.viewer) {
             this.viewer.destroy();
         }
-
     }
-
-
-
 
 }

@@ -297,9 +297,22 @@ if (this.assetSelectionService.placing() && selectedAsset) {
   }
 
   if (style.showLabel) {
-    marker.bindTooltip(entity.name, {
+    const tooltipLines = [
+      `Name: ${entity.name}`,
+      `Lat: ${entity.position.latitude.toFixed(6)}`,
+      `Lng: ${entity.position.longitude.toFixed(6)}`
+    ];
+
+    if (entity.properties) {
+      for (const [key, value] of Object.entries(entity.properties)) {
+        tooltipLines.push(`${key}: ${value}`);
+      }
+    }
+
+    marker.bindTooltip(tooltipLines.join('<br/>'), {
       permanent: false,
-      direction: 'top'
+      direction: 'top',
+      className: 'entity-tooltip'
     });
   }
 

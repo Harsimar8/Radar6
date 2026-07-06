@@ -45,7 +45,9 @@ export class CesiumEntityRendererService {
                 text: entity.name,
                 pixelOffset: new Cesium.Cartesian2(0, -22),
                 scale: 0.7
-            }
+            },
+
+            properties: new Cesium.PropertyBag(entity.properties ?? {})
 
         };
 
