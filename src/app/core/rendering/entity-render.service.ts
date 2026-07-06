@@ -25,7 +25,7 @@ export class EntityRenderService {
     },
 
     [EntityType.RadarSite]: {
-      icon: 'icons/aircraft.png',
+      icon: 'icons/radar.png',
       color: '#d32f2f',
       showLabel: true,
       showRange: true
@@ -87,7 +87,7 @@ export class EntityRenderService {
 
       case EntityType.RadarSite:
         return {
-          icon: 'icons/radar.jpg',
+          icon: 'icons/radar.png',
           color: '#d32f2f',
           size: 18,
           showLabel: true,

@@ -41,12 +41,27 @@ export class CesiumEntityRendererService {
 
             position,
 
-            label: {
-                text: entity.name,
-                pixelOffset: new Cesium.Cartesian2(0, -22),
-                scale: 0.7
-            },
+             label: {
+    text: entity.name,
 
+    show: true,
+
+    font: '14px Arial',
+
+    fillColor: Cesium.Color.WHITE,
+
+    outlineColor: Cesium.Color.WHITE,
+
+    outlineWidth: 2,
+
+    style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+
+    verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+
+    pixelOffset: new Cesium.Cartesian2(0, -50),
+
+    disableDepthTestDistance: Number.POSITIVE_INFINITY
+},
             properties: new Cesium.PropertyBag(entity.properties ?? {})
 
         };
@@ -57,9 +72,9 @@ export class CesiumEntityRendererService {
 
                 image: style.icon,
 
-                width: 32,
+                width: 36,
 
-                height: 32,
+                height: 36,
 
                 verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
 
