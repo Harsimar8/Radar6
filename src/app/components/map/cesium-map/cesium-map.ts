@@ -39,6 +39,9 @@ export class CesiumMapComponent implements AfterViewInit, OnDestroy {
     private filterService = inject(FilterService);
     private syncing = false;
     private lastEmittedCamera: MapView | null = null;
+    private cesiumSyncFrame: number | null = null;
+    private lastCesiumEmitAt = 0;
+    private readonly cesiumEmitThrottleMs = 75;
 
     private tooltip: HTMLElement | null = null;
     private hoverHandler: Cesium.ScreenSpaceEventHandler | null = null;
@@ -179,13 +182,66 @@ entity.billboard.color = new Cesium.ConstantProperty(
 }
 
     private initializeCameraSync(): void {
+        this.viewer.camera.moveStart.addEventListener(() => {
+            this.startCesiumCameraLoop();
+        });
+
+        this.viewer.camera.moveEnd.addEventListener(() => {
+            this.stopCesiumCameraLoop();
+        });
+
         this.viewer.camera.changed.addEventListener(() => {
             if (this.syncing) return;
+            this.queueCesiumCameraEmit();
+        });
+    }
+
+    private startCesiumCameraLoop(): void {
+        if (this.cesiumSyncFrame !== null) {
+            return;
+        }
+
+        const tick = () => {
+            if (!this.viewer || this.syncing) {
+                this.cesiumSyncFrame = null;
+                return;
+            }
+
+            this.emitCesiumCamera();
+            this.cesiumSyncFrame = window.requestAnimationFrame(tick);
+        };
+
+        this.cesiumSyncFrame = window.requestAnimationFrame(tick);
+    }
+
+    private stopCesiumCameraLoop(): void {
+        if (this.cesiumSyncFrame !== null) {
+            window.cancelAnimationFrame(this.cesiumSyncFrame);
+            this.cesiumSyncFrame = null;
+        }
+
+        this.emitCesiumCamera();
+    }
+
+    private queueCesiumCameraEmit(): void {
+        if (this.cesiumSyncFrame !== null || this.syncing) {
+            return;
+        }
+
+        this.cesiumSyncFrame = window.requestAnimationFrame(() => {
+            this.cesiumSyncFrame = null;
             this.emitCesiumCamera();
         });
     }
 
     private emitCesiumCamera(): void {
+        const now = Date.now();
+        if (now - this.lastCesiumEmitAt < this.cesiumEmitThrottleMs) {
+            return;
+        }
+
+        this.lastCesiumEmitAt = now;
+
         const cameraPosition = this.viewer.camera.positionCartographic;
         const height = cameraPosition.height;
         const lat = Cesium.Math.toDegrees(cameraPosition.latitude);
@@ -208,17 +264,10 @@ entity.billboard.color = new Cesium.ConstantProperty(
     }
 
     private getZoomFromHeight(height: number): number {
-        const earthCircumference = 40075016.686;
-        const tileSize = 256;
-        const cesiumFov = Math.PI / 3;
+        const latitude = Cesium.Math.toDegrees(this.viewer.camera.positionCartographic.latitude);
+        const viewportHeight = this.viewer.canvas.clientHeight || 600;
 
-        const visibleMeters = 2 * height * Math.tan(cesiumFov / 2);
-        const resolution = visibleMeters / this.viewer.canvas.clientHeight;
-        const latitude = this.viewer.camera.positionCartographic.latitude;
-        const latFactor = Math.cos(latitude);
-        const zoom = Math.log2((earthCircumference * latFactor) / (resolution * tileSize));
-
-        return Math.max(1, Math.min(18, zoom));
+        return this.mapSyncService.getZoomFromHeight(height, latitude, viewportHeight);
     }
 
     private isSameView(a: MapView, b: MapView | null): boolean {

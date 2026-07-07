@@ -91,7 +91,7 @@ this.redrawEntities();
       zoomDelta: 0.25
     }).setView(
       [initialView.latitude, initialView.longitude],
-      initialView.zoom ?? this.getZoomFromHeight(initialView.height)
+      initialView.zoom ?? this.getZoomFromHeight(initialView.height, initialView.latitude)
     );
 
     // Only emit to service on user-initiated events
@@ -120,21 +120,14 @@ this.redrawEntities();
   }
 
   private getCameraHeight(zoom: number): number {
-    const tileSize = 256;
-    const earthCircumference = 40075016.686;
     const center = this.map.getCenter();
-    const latRadians = (center.lat * Math.PI) / 180;
-    const resolution =
-      (earthCircumference * Math.cos(latRadians)) /
-      (tileSize * Math.pow(2, zoom));
-
-    const mapHeight = this.map.getSize().y;
-    const visibleMeters = resolution * mapHeight;
-    const cesiumFov = Math.PI / 3;
-    const height = visibleMeters / (2 * Math.tan(cesiumFov / 2));
-
-    return Math.max(600, height);
+    return this.mapSyncService.getHeightFromZoom(
+      zoom,
+      center.lat,
+      this.map.getSize().y || 600
+    );
 }
+
 
   private initializeSynchronization(): void {
     this.mapSyncService.camera$.subscribe(camera => {
@@ -154,21 +147,40 @@ this.redrawEntities();
   private scheduleCameraView(camera: MapView): void {
     this.syncing = true;
 
-    this.map.setView(
-      [camera.latitude, camera.longitude],
-      camera.zoom ?? this.getZoomFromHeight(camera.height),
-      {
+    const targetZoom = camera.zoom ?? this.getZoomFromHeight(camera.height, camera.latitude);
+    const currentCenter = this.map.getCenter();
+    const zoomDiff = Math.abs(targetZoom - this.map.getZoom());
+    const centerDiffLat = Math.abs(camera.latitude - currentCenter.lat);
+    const centerDiffLng = Math.abs(camera.longitude - currentCenter.lng);
+
+    if (centerDiffLat < 0.0002 && centerDiffLng < 0.0002 && zoomDiff < 0.05) {
+      this.syncing = false;
+      return;
+    }
+
+    if (zoomDiff < 0.1) {
+      this.map.panTo([camera.latitude, camera.longitude], {
         animate: false
-      }
-    );
+      });
+    } else {
+      this.map.setView(
+        [camera.latitude, camera.longitude],
+        targetZoom,
+        {
+          animate: false
+        }
+      );
+    }
 
     this.syncing = false;
   }
 
-private getZoomFromHeight(height: number): number {
-    const baseHeight = 4000000;
-    const zoom = 5 + Math.log(baseHeight / height) / Math.log(2);
-    return Math.max(1, Math.min(18, zoom));
+private getZoomFromHeight(height: number, latitude: number): number {
+    return this.mapSyncService.getZoomFromHeight(
+      height,
+      latitude,
+      this.map.getSize().y || 600
+    );
 }
 private getLeafletIcon(path: string, highlighted = false): L.Icon {
 
