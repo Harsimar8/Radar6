@@ -295,6 +295,33 @@ private drawRadarSector(
 
 }
 
+private drawRadarCone(
+    viewer: Cesium.Viewer,
+    position: Cesium.Cartesian3,
+    searchRange: number
+): void {
+
+    viewer.entities.add({
+
+        position: position,
+
+        cylinder: {
+
+            length: searchRange * 0.6,
+
+            topRadius: 0,
+
+            bottomRadius: searchRange * 0.15,
+
+            material: Cesium.Color.LIME.withAlpha(0.45),
+
+            outline: false
+
+        }
+
+    });
+
+}
     private createRadarPolygon(
         latitude: number,
         longitude: number,
