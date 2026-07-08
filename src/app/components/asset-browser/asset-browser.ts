@@ -1,5 +1,6 @@
 import { Component, computed, effect } from '@angular/core';
-
+import { FilterService } from '../../services/filter.service';
+import { Team } from '../../core/enums/Team';
 import { AssetLibraryService } from '../../core/asset-library/services/asset-library.service';
 import { AssetSelectionService } from '../../services/asset-selection.service';
 import { KeyValuePipe } from '@angular/common';
@@ -26,12 +27,13 @@ interface AssetTypeGroup {
 })
 export class AssetBrowser {
 
-  constructor(
+ constructor(
   private assetLibraryService: AssetLibraryService,
   public assetSelectionService: AssetSelectionService,
   public simulationService: SimulationService,
-  private entityService: EntityService
-) {
+  private entityService: EntityService,
+  public filterService: FilterService
+){
     effect(() => {
         console.log("Placement Mode:", this.assetSelectionService.placing());
     });
@@ -166,6 +168,18 @@ placeSelectedAsset(): void {
 
     console.log("Placement Mode Started");
 
+}
+
+getCurrentForce(): Team {
+    return this.filterService.getSelectedTeam();
+}
+
+isBlueForce(): boolean {
+    return this.getCurrentForce() === Team.Blue;
+}
+
+isRedForce(): boolean {
+    return this.getCurrentForce() === Team.Red;
 }
 
 }

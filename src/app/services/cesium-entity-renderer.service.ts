@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import * as Cesium from 'cesium';
-
+import { Team } from '../core/enums/Team';
 import { Entity } from '../core/models/Entity';
 import { EntityType } from '../core/enums/EntityType';
 import { EntityRenderService } from '../core/rendering/entity-render.service';
@@ -49,7 +49,12 @@ export class CesiumEntityRendererService {
 
     font: '14px Arial',
 
-    fillColor: Cesium.Color.WHITE,
+   fillColor:
+    entity.team === Team.Blue
+        ? Cesium.Color.DEEPSKYBLUE
+        : entity.team === Team.Red
+        ? Cesium.Color.RED
+        : Cesium.Color.WHITE,
 
     outlineColor: Cesium.Color.WHITE,
 
@@ -59,7 +64,7 @@ export class CesiumEntityRendererService {
 
     verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
 
-    pixelOffset: new Cesium.Cartesian2(0, -50),
+    pixelOffset: new Cesium.Cartesian2(50,0),
 
     disableDepthTestDistance: Number.POSITIVE_INFINITY
 },

@@ -52,14 +52,22 @@
 
     </div>
 
-    <div class="team-controls">
+     <div class="team-controls">
 
-    <button (click)="highlightBlue()">
+    <button
+        [class.active]="isBlueSelected()"
+        (click)="selectBlue()">
+
         🔵 Blue
+
     </button>
 
-    <button (click)="highlightRed()">
+    <button
+        [class.active]="isRedSelected()"
+        (click)="selectRed()">
+
         🔴 Red
+
     </button>
 
 </div>

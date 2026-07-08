@@ -104,11 +104,21 @@ toggleEntityType(type: EntityType, event: Event): void {
     this.filterService.setVisible(type, checked);
 
 }
-highlightBlue() {
-    console.log('Blue clicked');
+
+
+isBlueSelected(): boolean {
+    return this.filterService.getSelectedTeam() === Team.Blue;
 }
 
-highlightRed() {
-    console.log('Red clicked');
+isRedSelected(): boolean {
+    return this.filterService.getSelectedTeam() === Team.Red;
+}
+
+selectBlue(): void {
+    this.filterService.setSelectedTeam(Team.Blue);
+}
+
+selectRed(): void {
+    this.filterService.setSelectedTeam(Team.Red);
 }
 }

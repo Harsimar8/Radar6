@@ -24,6 +24,7 @@ export class FilterService {
       Object.values(Team).map(team => [team, false])
     )
   );
+  readonly selectedTeam = signal<Team>(Team.Blue);
 
   isVisible(type: EntityType): boolean {
     return this.filters().get(type) ?? true;
@@ -62,4 +63,12 @@ export class FilterService {
   toggleTeamHighlighted(team: Team): void {
     this.setTeamHighlighted(team, !this.isTeamHighlighted(team));
   }
+
+  setSelectedTeam(team: Team): void {
+    this.selectedTeam.set(team);
+}
+
+getSelectedTeam(): Team {
+    return this.selectedTeam();
+}
 }

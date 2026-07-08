@@ -182,19 +182,51 @@ private getZoomFromHeight(height: number, latitude: number): number {
       this.map.getSize().y || 600
     );
 }
-private getLeafletIcon(path: string, highlighted = false): L.Icon {
+private getLeafletIcon(
+    path: string,
+    highlighted = false,
+    team: Team
+): L.DivIcon {
 
-    return L.icon({
+    const badge =
+    team === Team.Blue
+        ? "🔵"
+        : team === Team.Red
+        ? "🔴"
+        : "⚪";
 
-        iconUrl: path,
+return L.divIcon({
 
-        iconSize: highlighted ? [42, 42] : [32, 32],
+    className: "",
 
-        iconAnchor: highlighted ? [21, 21] : [16, 16],
+    iconSize: highlighted ? [42, 42] : [32, 32],
 
-        className: highlighted ? 'team-highlight' : ''
+    iconAnchor: highlighted ? [21, 21] : [16, 16],
 
-    });
+    html: `
+        <div style="position:relative; width:${highlighted ? 42 : 32}px; height:${highlighted ? 42 : 32}px;">
+
+            <img
+                src="${path}"
+                style="
+                    width:100%;
+                    height:100%;
+                ">
+
+            <div
+                style="
+                    position:absolute;
+                    top:34px;
+                    right:-14px;
+                    font-size:16px;
+                ">
+                ${badge}
+            </div>
+
+        </div>
+    `
+
+});
 
 }
 
@@ -287,7 +319,11 @@ if (this.assetSelectionService.placing() && selectedAsset) {
             marker = L.marker(
                 [entity.position.latitude, entity.position.longitude],
                 {
-                    icon: this.getLeafletIcon(style.icon, highlighted)
+                    icon: this.getLeafletIcon(
+    style.icon,
+    highlighted,
+    entity.team
+)
                 }
             );
         } else {
