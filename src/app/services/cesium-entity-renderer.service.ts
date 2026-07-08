@@ -186,6 +186,66 @@ private drawSamCoverage(
     });
 
 }
+private drawRadarSector(
+    viewer: Cesium.Viewer,
+    entity: Entity,
+    searchRange: number
+): void {
+
+    const heading = entity.properties?.["radarHeading"] ?? 0;
+    const beamWidth = entity.properties?.["beamWidth"] ?? 40;
+
+    const positions: Cesium.Cartesian3[] = [];
+
+    // Center point
+    positions.push(
+        Cesium.Cartesian3.fromDegrees(
+            entity.position.longitude,
+            entity.position.latitude,
+            searchRange * 0.15
+        )
+    );
+
+    const start = heading - beamWidth / 2;
+    const end = heading + beamWidth / 2;
+
+    for (let angle = start; angle <= end; angle += 2) {
+
+        const rad = Cesium.Math.toRadians(angle);
+
+        const dLat =
+            (searchRange * 0.6 * Math.cos(rad)) / 111320;
+
+        const dLon =
+            (searchRange * 0.6 * Math.sin(rad)) /
+            (111320 * Math.cos(
+                Cesium.Math.toRadians(entity.position.latitude)
+            ));
+
+        positions.push(
+            Cesium.Cartesian3.fromDegrees(
+                entity.position.longitude + dLon,
+                entity.position.latitude + dLat,
+                searchRange * 0.15
+            )
+        );
+    }
+
+    viewer.entities.add({
+
+        polygon: {
+
+            hierarchy: positions,
+
+            material: Cesium.Color.LIME.withAlpha(0.55),
+
+            perPositionHeight: true
+
+        }
+
+    });
+
+}
     private isGroundEntity(entity: Entity): boolean {
 
         return entity.type === EntityType.RadarSite ||
@@ -220,10 +280,16 @@ private drawSamCoverage(
     else if (entity.type === EntityType.SamBattery) {
 
         this.drawSamCoverage(
-            viewer,
-            position,
-            searchRange
-        );
+        viewer,
+        position,
+        searchRange
+    );
+
+    this.drawRadarSector(
+        viewer,
+        entity,
+        searchRange
+    );
 
     }
 
